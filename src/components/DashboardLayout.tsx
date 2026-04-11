@@ -23,6 +23,7 @@ import {
   Bell,
   Search,
   LogOut,
+  Trophy,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,7 @@ import spadeLogo from "@/assets/spade-logo.png";
 
 const navItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+  { title: "Elections", url: "/dashboard/elections", icon: Trophy },
   { title: "Voting", url: "/dashboard/voting", icon: Vote },
   { title: "Events", url: "/dashboard/events", icon: Calendar },
   { title: "Applicants", url: "/dashboard/applicants", icon: Users },
