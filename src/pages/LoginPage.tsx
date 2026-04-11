@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ROLES } from "@/lib/roles";
+import { APPLICANT_ROLES } from "@/lib/roles";
 import { toast } from "sonner";
 import loginBg from "@/assets/login-bg.jpg";
 import spadeLogo from "@/assets/spade-logo.png";
@@ -30,7 +30,7 @@ const LoginPage = () => {
       toast.error("Please select a role");
       return;
     }
-    toast.success(isRegister ? "Account created!" : "Welcome back!");
+    toast.success(isRegister ? "Application submitted! Please wait for approval." : "Welcome back!");
     navigate("/dashboard");
   };
 
@@ -58,10 +58,10 @@ const LoginPage = () => {
           </div>
 
           <h2 className="text-3xl font-bold text-foreground mb-2">
-            {isRegister ? "Create Account" : "Welcome Back"}
+            {isRegister ? "Apply to SPADE" : "Welcome Back"}
           </h2>
           <p className="text-muted-foreground mb-8">
-            {isRegister ? "Join the SPADE community" : "Sign in to your account"}
+            {isRegister ? "Submit your application to join the organization" : "Sign in to your account"}
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -97,7 +97,7 @@ const LoginPage = () => {
                     <SelectValue placeholder="Select your role" />
                   </SelectTrigger>
                   <SelectContent>
-                    {ROLES.map((r) => (
+                    {APPLICANT_ROLES.map((r) => (
                       <SelectItem key={r.id} value={r.id}>{r.label}</SelectItem>
                     ))}
                   </SelectContent>
@@ -106,17 +106,17 @@ const LoginPage = () => {
             )}
 
             <Button type="submit" className="w-full h-12 rounded-xl gradient-primary text-primary-foreground font-semibold text-base hover:opacity-90 transition-opacity">
-              {isRegister ? "Create Account" : "Sign In"}
+              {isRegister ? "Submit Application" : "Sign In"}
             </Button>
           </form>
 
           <p className="text-center mt-6 text-muted-foreground">
-            {isRegister ? "Already have an account?" : "Don't have an account?"}{" "}
+            {isRegister ? "Already have an account?" : "Want to join SPADE?"}{" "}
             <button
               onClick={() => setIsRegister(!isRegister)}
               className="text-primary font-semibold hover:underline"
             >
-              {isRegister ? "Sign In" : "Register"}
+              {isRegister ? "Sign In" : "Apply Now"}
             </button>
           </p>
         </div>

@@ -7,6 +7,7 @@ import LoginPage from "./pages/LoginPage";
 import DashboardLayout from "./components/DashboardLayout";
 import DashboardPage from "./pages/DashboardPage";
 import VotingPage from "./pages/VotingPage";
+import ElectionPage from "./pages/ElectionPage";
 import EventsPage from "./pages/EventsPage";
 import ApplicantsPage from "./pages/ApplicantsPage";
 import ProjectsPage from "./pages/ProjectsPage";
@@ -26,6 +27,7 @@ const App = () => (
           <Route path="/dashboard" element={<DashboardLayout />}>
             <Route index element={<DashboardPage />} />
             <Route path="voting" element={<VotingPage />} />
+            <Route path="elections" element={<ElectionPage />} />
             <Route path="events" element={<EventsPage />} />
             <Route path="applicants" element={<ApplicantsPage />} />
             <Route path="projects" element={<ProjectsPage />} />
