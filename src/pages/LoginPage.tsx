@@ -141,20 +141,20 @@ const LoginPage = () => {
     <div className="min-h-screen bg-[linear-gradient(135deg,rgba(255,255,255,0.92),rgba(227,242,255,0.94),rgba(255,244,233,0.88))]">
       <div className="grid min-h-screen lg:grid-cols-[1.05fr_0.95fr]">
         <div className="relative hidden overflow-hidden lg:flex">
-          <img src={loginBg} alt="" className="absolute inset-0 h-full w-full object-cover scale-105 animate-drift" width={1920} height={1080} />
+          <img src={loginBg} alt="" className="absolute inset-0 h-full w-full object-cover scale-105" width={1920} height={1080} />
           <div className="absolute inset-0 bg-slate-950/45" />
-          <div className="absolute inset-0 animate-shimmer bg-[radial-gradient(circle_at_top_left,rgba(125,197,255,0.35),transparent_38%),radial-gradient(circle_at_bottom_right,rgba(255,223,196,0.4),transparent_32%)]" />
-          <div className="absolute -left-16 top-12 h-56 w-56 rounded-full bg-sky-300/20 blur-3xl animate-drift" />
-          <div className="absolute bottom-16 right-8 h-64 w-64 rounded-full bg-orange-200/20 blur-3xl animate-drift-reverse" />
-          <div className="absolute left-[22%] top-[18%] h-3 w-3 rounded-full bg-white/80 shadow-[0_0_24px_rgba(255,255,255,0.7)] animate-pulse-soft" />
-          <div className="absolute bottom-[26%] left-[18%] h-2.5 w-2.5 rounded-full bg-sky-200/80 shadow-[0_0_20px_rgba(125,197,255,0.65)] animate-pulse-soft" />
-          <div className="absolute right-[20%] top-[24%] h-2 w-2 rounded-full bg-orange-100/80 shadow-[0_0_18px_rgba(255,223,196,0.65)] animate-pulse-soft" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(125,197,255,0.35),transparent_38%),radial-gradient(circle_at_bottom_right,rgba(255,223,196,0.4),transparent_32%)]" />
+          <div className="absolute -left-16 top-12 h-56 w-56 rounded-full bg-sky-300/20 blur-3xl" />
+          <div className="absolute bottom-16 right-8 h-64 w-64 rounded-full bg-orange-200/20 blur-3xl" />
+          <div className="absolute left-[22%] top-[18%] h-3 w-3 rounded-full bg-white/80 shadow-[0_0_24px_rgba(255,255,255,0.7)]" />
+          <div className="absolute bottom-[26%] left-[18%] h-2.5 w-2.5 rounded-full bg-sky-200/80 shadow-[0_0_20px_rgba(125,197,255,0.65)]" />
+          <div className="absolute right-[20%] top-[24%] h-2 w-2 rounded-full bg-orange-100/80 shadow-[0_0_18px_rgba(255,223,196,0.65)]" />
 
           <div className="relative z-10 flex h-full w-full flex-col justify-between p-10 xl:p-14">
             <div className="flex items-center gap-4">
               <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-white/14 backdrop-blur-md ring-1 ring-white/30">
-                <span className="absolute inset-[-6px] rounded-[1.15rem] border border-white/20 animate-pulse-soft" />
-                <span className="absolute inset-0 animate-orbit">
+                <span className="absolute inset-[-6px] rounded-[1.15rem] border border-white/20" />
+                <span className="absolute inset-0">
                   <span className="absolute left-1/2 top-0 h-2 w-2 -translate-x-1/2 rounded-full bg-white/80" />
                 </span>
                 <img src={spadeLogo} alt="SPADE" className="h-9 w-9" width={512} height={512} />
@@ -167,7 +167,7 @@ const LoginPage = () => {
 
             <div className="max-w-xl space-y-8">
               <div className="space-y-5">
-                <div className="inline-flex animate-shimmer items-center rounded-full border border-white/20 bg-[linear-gradient(120deg,rgba(255,255,255,0.09),rgba(255,255,255,0.18),rgba(255,255,255,0.08))] px-4 py-2 text-xs font-medium uppercase tracking-[0.24em] text-white/80 backdrop-blur-md">
+                <div className="inline-flex items-center rounded-full border border-white/20 bg-[linear-gradient(120deg,rgba(255,255,255,0.09),rgba(255,255,255,0.18),rgba(255,255,255,0.08))] px-4 py-2 text-xs font-medium uppercase tracking-[0.24em] text-white/80 backdrop-blur-md">
                   Campus leadership workspace
                 </div>
                 <div className="space-y-4">
@@ -180,17 +180,17 @@ const LoginPage = () => {
               </div>
 
               <div className="grid gap-4 sm:grid-cols-3">
-                <div className="rounded-3xl border border-white/18 bg-white/10 p-4 backdrop-blur-md animate-float">
+                <div className="rounded-3xl border border-white/18 bg-white/10 p-4 backdrop-blur-md">
                   <ShieldCheck className="mb-4 h-5 w-5 text-white" />
                   <p className="text-sm font-semibold text-white">Secure access</p>
                   <p className="mt-1 text-sm leading-6 text-white/72">Restricted to official campus email accounts.</p>
                 </div>
-                <div className="rounded-3xl border border-white/18 bg-white/10 p-4 backdrop-blur-md [animation-delay:1.2s] animate-float">
+                <div className="rounded-3xl border border-white/18 bg-white/10 p-4 backdrop-blur-md">
                   <BadgeCheck className="mb-4 h-5 w-5 text-white" />
                   <p className="text-sm font-semibold text-white">Applicant workflow</p>
                   <p className="mt-1 text-sm leading-6 text-white/72">Apply and route role selections through a clean intake flow.</p>
                 </div>
-                <div className="rounded-3xl border border-white/18 bg-white/10 p-4 backdrop-blur-md [animation-delay:2.4s] animate-float">
+                <div className="rounded-3xl border border-white/18 bg-white/10 p-4 backdrop-blur-md">
                   <BriefcaseBusiness className="mb-4 h-5 w-5 text-white" />
                   <p className="text-sm font-semibold text-white">Operational hub</p>
                   <p className="mt-1 text-sm leading-6 text-white/72">Centralize meetings, projects, and election activity.</p>
@@ -202,19 +202,19 @@ const LoginPage = () => {
 
         <div className="relative flex items-center justify-center overflow-hidden px-5 py-8 sm:px-8 lg:px-10 xl:px-14">
           <div className="absolute inset-0 lg:hidden">
-            <img src={loginBg} alt="" className="h-full w-full object-cover opacity-15 animate-drift-reverse" width={1920} height={1080} />
+            <img src={loginBg} alt="" className="h-full w-full object-cover opacity-15" width={1920} height={1080} />
             <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(247,250,252,0.86),rgba(247,250,252,0.98))]" />
           </div>
 
-          <div className="pointer-events-none absolute -left-12 top-10 h-32 w-32 rounded-full bg-primary/20 blur-3xl animate-drift" />
-          <div className="pointer-events-none absolute bottom-10 right-0 h-40 w-40 rounded-full bg-accent/50 blur-3xl animate-drift-reverse" />
-          <div className="pointer-events-none absolute left-10 top-1/3 h-2 w-2 rounded-full bg-primary/70 shadow-[0_0_16px_rgba(125,197,255,0.5)] animate-pulse-soft" />
-          <div className="pointer-events-none absolute right-16 top-20 h-2.5 w-2.5 rounded-full bg-accent-foreground/40 shadow-[0_0_18px_rgba(255,210,170,0.5)] animate-pulse-soft" />
+          <div className="pointer-events-none absolute -left-12 top-10 h-32 w-32 rounded-full bg-primary/20 blur-3xl" />
+          <div className="pointer-events-none absolute bottom-10 right-0 h-40 w-40 rounded-full bg-accent/50 blur-3xl" />
+          <div className="pointer-events-none absolute left-10 top-1/3 h-2 w-2 rounded-full bg-primary/70 shadow-[0_0_16px_rgba(125,197,255,0.5)]" />
+          <div className="pointer-events-none absolute right-16 top-20 h-2.5 w-2.5 rounded-full bg-accent-foreground/40 shadow-[0_0_18px_rgba(255,210,170,0.5)]" />
 
-          <div className="relative z-10 w-full max-w-xl animate-fade-in">
+          <div className="relative z-10 w-full max-w-xl">
             <div className="mb-6 flex items-center justify-center gap-3 lg:hidden">
               <div className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-white/80 shadow-[var(--shadow-card)] ring-1 ring-border/60">
-                <span className="absolute inset-[-5px] rounded-[1.05rem] border border-primary/20 animate-pulse-soft" />
+                <span className="absolute inset-[-5px] rounded-[1.05rem] border border-primary/20" />
                 <img src={spadeLogo} alt="SPADE" className="h-7 w-7" width={512} height={512} />
               </div>
               <div>
@@ -223,7 +223,7 @@ const LoginPage = () => {
               </div>
             </div>
 
-            <div className="glass-card-elevated animate-drift-reverse rounded-[2rem] p-6 sm:max-h-[92vh] sm:overflow-y-auto sm:p-8 xl:p-10">
+            <div className="glass-card-elevated rounded-[2rem] p-6 sm:max-h-[92vh] sm:overflow-y-auto sm:p-8 xl:p-10">
               <div className="mb-8 flex rounded-2xl bg-muted/70 p-1.5">
                 <button
                   type="button"
@@ -355,7 +355,7 @@ const LoginPage = () => {
                 </div>
 
                 {isRegister && (
-                  <div className="grid gap-5 rounded-[1.5rem] border border-border/60 bg-background/55 p-4 animate-slide-up">
+                  <div className="grid gap-5 rounded-[1.5rem] border border-border/60 bg-background/55 p-4">
                     <div className="space-y-2">
                       <Label>Preferred Role</Label>
                       <Select value={role} onValueChange={setRole}>
