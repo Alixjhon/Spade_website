@@ -86,6 +86,13 @@ export default function EventsPage() {
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
   const [events, setEvents] = useState<EventItem[]>([]);
+  // Track registered events (using localStorage for persistence)
+  const [registeredEvents, setRegisteredEvents] = useState<number[]>(() => {
+    const saved = localStorage.getItem('registeredEvents');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [showInviteDialog, setShowInviteDialog] = useState(false);
+  const [inviteLink, setInviteLink] = useState('');
 
   const [form, setForm] = useState({
     title: "",
@@ -158,6 +165,36 @@ export default function EventsPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // --- EVENT HANDLERS ---
+  const handleCopyInviteLink = (event: any) => {
+    const link = `${window.location.origin}/events/${event.id}`;
+    navigator.clipboard.writeText(link).then(() => {
+      setInviteLink(link);
+      setShowInviteDialog(true);
+      // Auto close after 3 seconds
+      setTimeout(() => setShowInviteDialog(false), 3000);
+    }).catch(err => {
+      alert('Failed to copy link. Please try again.');
+    });
+  };
+
+  const handleRegisterToAttend = (eventId: number) => {
+    // Check if user already registered
+    if (registeredEvents.includes(eventId)) {
+      alert('You have already registered for this event.');
+      return;
+    }
+
+    // Add to registered events
+    const updatedRegistered = [...registeredEvents, eventId];
+    setRegisteredEvents(updatedRegistered);
+    // Save to localStorage for persistence
+    localStorage.setItem('registeredEvents', JSON.stringify(updatedRegistered));
+    
+    // Show success message
+    alert('Register successful!');
   };
 
   return (
@@ -388,16 +425,59 @@ export default function EventsPage() {
                 </div>
 
                 <div className="flex gap-4 pt-4">
-                  <Button className="flex-1 h-14 text-lg font-bold rounded-2xl shadow-lg shadow-primary/20">
-                    Register to Attend
+                  <Button 
+                    className="flex-1 h-14 text-lg font-bold rounded-2xl shadow-lg shadow-primary/20"
+                    onClick={() => handleRegisterToAttend(selectedEvent.id)}
+                    disabled={registeredEvents.includes(selectedEvent.id)}
+                  >
+                    {registeredEvents.includes(selectedEvent.id) 
+                      ? "✓ Already Registered" 
+                      : "Register to Attend"
+                    }
                   </Button>
-                  <Button variant="outline" className="h-14 px-8 rounded-2xl border-2">
+                  <Button 
+                    variant="outline" 
+                    className="h-14 px-8 rounded-2xl border-2"
+                    onClick={() => handleCopyInviteLink(selectedEvent)}
+                  >
                     Invite
                   </Button>
                 </div>
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Invite Link Dialog */}
+      <Dialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
+        <DialogContent className="max-w-md p-6 rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold">Invite Link</DialogTitle>
+            <DialogDescription>
+              Share this link with others to invite them to this event
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div className="flex items-center gap-2">
+              <Input 
+                value={inviteLink} 
+                readOnly 
+                className="font-mono text-sm"
+              />
+              <Button 
+                onClick={() => {
+                  navigator.clipboard.writeText(inviteLink);
+                  alert('Link copied to clipboard!');
+                }}
+              >
+                Copy
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground text-center">
+              This link has been copied to your clipboard automatically
+            </p>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
