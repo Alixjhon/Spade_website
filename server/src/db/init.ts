@@ -93,6 +93,25 @@ export async function initializeDatabase(): Promise<void> {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
+    CREATE TABLE IF NOT EXISTS meeting_room_participants (
+      room_code TEXT NOT NULL REFERENCES meeting_rooms(room_code) ON DELETE CASCADE,
+      peer_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (room_code, peer_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS meeting_room_signals (
+      id SERIAL PRIMARY KEY,
+      room_code TEXT NOT NULL REFERENCES meeting_rooms(room_code) ON DELETE CASCADE,
+      from_peer_id TEXT NOT NULL,
+      to_peer_id TEXT NOT NULL,
+      type TEXT NOT NULL,
+      payload JSONB,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
     CREATE TABLE IF NOT EXISTS elections (
       id SERIAL PRIMARY KEY,
       election_year INTEGER NOT NULL UNIQUE,
@@ -201,6 +220,11 @@ export async function initializeDatabase(): Promise<void> {
     SELECT setval(
       pg_get_serial_sequence('meeting_rooms', 'id'),
       COALESCE((SELECT MAX(id) FROM meeting_rooms), 0) + 1,
+      false
+    );
+    SELECT setval(
+      pg_get_serial_sequence('meeting_room_signals', 'id'),
+      COALESCE((SELECT MAX(id) FROM meeting_room_signals), 0) + 1,
       false
     );
     SELECT setval(

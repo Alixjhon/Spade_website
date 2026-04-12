@@ -1,100 +1,82 @@
-type SignalMessage = {
-  id: string;
-  type: "offer" | "answer" | "ice-candidate";
-  fromPeerId: string;
-  toPeerId: string;
-  payload: unknown;
-  createdAt: number;
-};
+import {
+  countMeetingParticipants,
+  deleteMeetingParticipant,
+  deleteMeetingSignalsForPeer,
+  enqueueMeetingSignal,
+  getMeetingParticipant,
+  listMeetingParticipants,
+  pruneStaleMeetingParticipants,
+  takeMeetingSignals,
+  upsertMeetingParticipant,
+} from "../repositories/meetingSessionRepository.js";
 
-type RoomParticipant = {
-  peerId: string;
-  name: string;
-  joinedAt: number;
-  lastSeenAt: number;
-  queue: SignalMessage[];
-};
+type SignalType = "offer" | "answer" | "ice-candidate";
 
-type MeetingRoom = {
-  roomId: string;
-  participants: Map<string, RoomParticipant>;
-};
-
-const rooms = new Map<string, MeetingRoom>();
 const STALE_PARTICIPANT_MS = 60_000;
 
 function sanitizeRoomId(roomId: string) {
   return roomId.trim().toUpperCase();
 }
 
-function getRoom(roomId: string) {
-  return rooms.get(sanitizeRoomId(roomId));
-}
-
-function pruneRoom(room: MeetingRoom) {
-  const now = Date.now();
-
-  for (const [peerId, participant] of room.participants.entries()) {
-    if (now - participant.lastSeenAt > STALE_PARTICIPANT_MS) {
-      room.participants.delete(peerId);
-    }
-  }
-}
-
-function serializePeer(peer: RoomParticipant) {
+function serializePeer(peer: {
+  peer_id: string;
+  name: string;
+  joined_at: Date | string;
+}) {
   return {
-    peerId: peer.peerId,
+    peerId: peer.peer_id,
     name: peer.name,
-    joinedAt: peer.joinedAt,
+    joinedAt: new Date(peer.joined_at).getTime(),
   };
 }
 
-export function getMeetingRoomParticipantCount(roomId: string) {
-  const room = getRoom(roomId);
-  if (!room) {
-    return 0;
-  }
-
-  pruneRoom(room);
-  return room.participants.size;
+function serializeSignal(signal: {
+  id: number;
+  type: SignalType;
+  from_peer_id: string;
+  to_peer_id: string;
+  payload: unknown;
+  created_at: Date | string;
+}) {
+  return {
+    id: String(signal.id),
+    type: signal.type,
+    fromPeerId: signal.from_peer_id,
+    toPeerId: signal.to_peer_id,
+    payload: signal.payload,
+    createdAt: new Date(signal.created_at).getTime(),
+  };
 }
 
-export function ensureMeetingRoomSession(roomId: string) {
+async function pruneStaleParticipants() {
+  await pruneStaleMeetingParticipants(new Date(Date.now() - STALE_PARTICIPANT_MS));
+}
+
+export async function getMeetingRoomParticipantCount(roomId: string) {
   const normalizedRoomId = sanitizeRoomId(roomId);
-  const existing = rooms.get(normalizedRoomId);
-  if (existing) {
-    return existing;
-  }
-
-  const room: MeetingRoom = {
-    roomId: normalizedRoomId,
-    participants: new Map(),
-  };
-  rooms.set(normalizedRoomId, room);
-  return room;
+  await pruneStaleParticipants();
+  return countMeetingParticipants(normalizedRoomId);
 }
 
-export function joinMeetingRoomSession(input: { roomId: string; peerId: string; name: string }) {
-  const room = ensureMeetingRoomSession(input.roomId);
+export async function joinMeetingRoomSession(input: { roomId: string; peerId: string; name: string }) {
+  const roomCode = sanitizeRoomId(input.roomId);
+  const peerId = input.peerId.trim();
+  const name = input.name.trim() || "Guest";
 
-  pruneRoom(room);
+  await pruneStaleParticipants();
 
-  const now = Date.now();
-  const existingParticipant = room.participants.get(input.peerId);
-  const participant: RoomParticipant = existingParticipant ?? {
-    peerId: input.peerId,
-    name: input.name.trim() || "Guest",
-    joinedAt: now,
+  const now = new Date();
+  const existing = await getMeetingParticipant({ roomCode, peerId });
+  const participant = await upsertMeetingParticipant({
+    roomCode,
+    peerId,
+    name,
+    joinedAt: existing ? new Date(existing.joined_at) : now,
     lastSeenAt: now,
-    queue: [],
-  };
+  });
 
-  participant.name = input.name.trim() || participant.name || "Guest";
-  participant.lastSeenAt = now;
-  room.participants.set(input.peerId, participant);
-
-  const peers = Array.from(room.participants.values())
-    .filter((peer) => peer.peerId !== input.peerId)
+  const peers = (await listMeetingParticipants(roomCode))
+    .filter((peer) => peer.peer_id !== peerId)
     .map(serializePeer);
 
   return {
@@ -103,20 +85,13 @@ export function joinMeetingRoomSession(input: { roomId: string; peerId: string; 
   };
 }
 
-export function pollMeetingRoomSession(input: { roomId: string; peerId: string }) {
-  const room = getRoom(input.roomId);
-  if (!room) {
-    return {
-      roomMissing: true,
-      peers: [],
-      signals: [],
-      missing: true,
-    };
-  }
+export async function pollMeetingRoomSession(input: { roomId: string; peerId: string }) {
+  const roomCode = sanitizeRoomId(input.roomId);
+  const peerId = input.peerId.trim();
 
-  pruneRoom(room);
+  await pruneStaleParticipants();
 
-  const participant = room.participants.get(input.peerId);
+  const participant = await getMeetingParticipant({ roomCode, peerId });
   if (!participant) {
     return {
       roomMissing: false,
@@ -126,13 +101,18 @@ export function pollMeetingRoomSession(input: { roomId: string; peerId: string }
     };
   }
 
-  participant.lastSeenAt = Date.now();
+  await upsertMeetingParticipant({
+    roomCode,
+    peerId,
+    name: participant.name,
+    joinedAt: new Date(participant.joined_at),
+    lastSeenAt: new Date(),
+  });
 
-  const peers = Array.from(room.participants.values())
-    .filter((peer) => peer.peerId !== input.peerId)
+  const peers = (await listMeetingParticipants(roomCode))
+    .filter((peer) => peer.peer_id !== peerId)
     .map(serializePeer);
-
-  const signals = participant.queue.splice(0, participant.queue.length);
+  const signals = (await takeMeetingSignals(roomCode, peerId)).map(serializeSignal);
 
   return {
     roomMissing: false,
@@ -142,67 +122,85 @@ export function pollMeetingRoomSession(input: { roomId: string; peerId: string }
   };
 }
 
-export function sendMeetingSignal(input: {
+export async function sendMeetingSignal(input: {
   roomId: string;
   fromPeerId: string;
   toPeerId: string;
-  type: SignalMessage["type"];
+  type: SignalType;
   payload: unknown;
 }) {
-  const room = getRoom(input.roomId);
-  if (!room) {
-    return { delivered: false };
-  }
+  const roomCode = sanitizeRoomId(input.roomId);
+  const fromPeerId = input.fromPeerId.trim();
+  const toPeerId = input.toPeerId.trim();
 
-  pruneRoom(room);
+  await pruneStaleParticipants();
 
-  const sender = room.participants.get(input.fromPeerId);
-  const receiver = room.participants.get(input.toPeerId);
+  const [sender, receiver] = await Promise.all([
+    getMeetingParticipant({ roomCode, peerId: fromPeerId }),
+    getMeetingParticipant({ roomCode, peerId: toPeerId }),
+  ]);
+
   if (!sender || !receiver) {
     return { delivered: false };
   }
 
-  sender.lastSeenAt = Date.now();
-  receiver.queue.push({
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+  const now = new Date();
+  await Promise.all([
+    upsertMeetingParticipant({
+      roomCode,
+      peerId: fromPeerId,
+      name: sender.name,
+      joinedAt: new Date(sender.joined_at),
+      lastSeenAt: now,
+    }),
+    upsertMeetingParticipant({
+      roomCode,
+      peerId: toPeerId,
+      name: receiver.name,
+      joinedAt: new Date(receiver.joined_at),
+      lastSeenAt: now,
+    }),
+  ]);
+
+  await enqueueMeetingSignal({
+    roomCode,
+    fromPeerId,
+    toPeerId,
     type: input.type,
-    fromPeerId: input.fromPeerId,
-    toPeerId: input.toPeerId,
     payload: input.payload,
-    createdAt: Date.now(),
   });
 
   return { delivered: true };
 }
 
-export function touchMeetingParticipant(input: { roomId: string; peerId: string }) {
-  const room = getRoom(input.roomId);
-  if (!room) {
-    return { ok: false };
-  }
+export async function touchMeetingParticipant(input: { roomId: string; peerId: string }) {
+  const roomCode = sanitizeRoomId(input.roomId);
+  const peerId = input.peerId.trim();
 
-  pruneRoom(room);
+  await pruneStaleParticipants();
 
-  const participant = room.participants.get(input.peerId);
+  const participant = await getMeetingParticipant({ roomCode, peerId });
   if (!participant) {
     return { ok: false };
   }
 
-  participant.lastSeenAt = Date.now();
+  await upsertMeetingParticipant({
+    roomCode,
+    peerId,
+    name: participant.name,
+    joinedAt: new Date(participant.joined_at),
+    lastSeenAt: new Date(),
+  });
+
   return { ok: true };
 }
 
-export function leaveMeetingRoom(input: { roomId: string; peerId: string }) {
-  const room = getRoom(input.roomId);
-  if (!room) {
-    return { ok: true };
-  }
+export async function leaveMeetingRoom(input: { roomId: string; peerId: string }) {
+  const roomCode = sanitizeRoomId(input.roomId);
+  const peerId = input.peerId.trim();
 
-  room.participants.delete(input.peerId);
-
-  if (room.participants.size === 0) {
-    rooms.delete(room.roomId);
-  }
+  await deleteMeetingSignalsForPeer({ roomCode, peerId });
+  await deleteMeetingParticipant({ roomCode, peerId });
 
   return { ok: true };
 }

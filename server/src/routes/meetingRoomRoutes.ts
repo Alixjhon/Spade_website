@@ -32,7 +32,7 @@ meetingRoomRouter.get(
   "/:roomId",
   asyncHandler(async (req, res) => {
     const roomId = singleValue(req.params.roomId);
-    const room = await getPersistentMeetingRoom(roomId, getMeetingRoomParticipantCount(roomId));
+    const room = await getPersistentMeetingRoom(roomId, await getMeetingRoomParticipantCount(roomId));
     if (!room) {
       res.status(404).json({ message: "Meeting room not found." });
       return;
@@ -46,19 +46,19 @@ meetingRoomRouter.post(
   "/:roomId/join",
   asyncHandler(async (req, res) => {
     const roomId = singleValue(req.params.roomId);
-    const participantCount = getMeetingRoomParticipantCount(roomId);
+    const participantCount = await getMeetingRoomParticipantCount(roomId);
     const roomInfo = await getPersistentMeetingRoom(roomId, participantCount);
     if (!roomInfo) {
       res.status(404).json({ message: "Meeting room not found." });
       return;
     }
 
-    const room = joinMeetingRoomSession({
+    const room = await joinMeetingRoomSession({
       roomId,
       peerId: String(req.body.peerId || ""),
       name: String(req.body.name || ""),
     });
-    const updatedRoomInfo = await getPersistentMeetingRoom(roomId, getMeetingRoomParticipantCount(roomId));
+    const updatedRoomInfo = await getPersistentMeetingRoom(roomId, await getMeetingRoomParticipantCount(roomId));
     res.json({ room: updatedRoomInfo ?? roomInfo, ...room });
   }),
 );
@@ -67,7 +67,7 @@ meetingRoomRouter.get(
   "/:roomId/poll",
   asyncHandler(async (req, res) => {
     const roomId = singleValue(req.params.roomId);
-    const roomInfo = await getPersistentMeetingRoom(roomId, getMeetingRoomParticipantCount(roomId));
+    const roomInfo = await getPersistentMeetingRoom(roomId, await getMeetingRoomParticipantCount(roomId));
     if (!roomInfo) {
       res.json({
         roomMissing: true,
@@ -79,7 +79,7 @@ meetingRoomRouter.get(
     }
 
     const peerId = String(req.query.peerId || "");
-    const state = pollMeetingRoomSession({
+    const state = await pollMeetingRoomSession({
       roomId,
       peerId,
     });
@@ -91,7 +91,7 @@ meetingRoomRouter.get(
 meetingRoomRouter.post(
   "/:roomId/signal",
   asyncHandler(async (req, res) => {
-    const result = sendMeetingSignal({
+    const result = await sendMeetingSignal({
       roomId: singleValue(req.params.roomId),
       fromPeerId: String(req.body.fromPeerId || ""),
       toPeerId: String(req.body.toPeerId || ""),
@@ -106,7 +106,7 @@ meetingRoomRouter.post(
 meetingRoomRouter.post(
   "/:roomId/heartbeat",
   asyncHandler(async (req, res) => {
-    const result = touchMeetingParticipant({
+    const result = await touchMeetingParticipant({
       roomId: singleValue(req.params.roomId),
       peerId: String(req.body.peerId || ""),
     });
@@ -118,7 +118,7 @@ meetingRoomRouter.post(
 meetingRoomRouter.post(
   "/:roomId/leave",
   asyncHandler(async (req, res) => {
-    const result = leaveMeetingRoom({
+    const result = await leaveMeetingRoom({
       roomId: singleValue(req.params.roomId),
       peerId: String(req.body.peerId || ""),
     });
