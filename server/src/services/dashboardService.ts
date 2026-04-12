@@ -3,6 +3,19 @@ import { listRecentActivities } from "../repositories/activityRepository.js";
 import { countProjects, countUpcomingEvents } from "../repositories/contentRepository.js";
 import { countActiveUsers, countPendingUsers, findUserSummary } from "../repositories/userRepository.js";
 
+function formatActorName(value: string) {
+  if (!value.includes("@")) {
+    return value;
+  }
+
+  return value
+    .split("@")[0]
+    .split(/[._-]/)
+    .filter(Boolean)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(" ");
+}
+
 export async function getDashboard(email: string) {
   const [user, activeUsers, totalProjects, upcomingEvents, pendingUsers, recentActivities] = await Promise.all([
     findUserSummary(email),
@@ -23,7 +36,7 @@ export async function getDashboard(email: string) {
     ],
     activities: recentActivities.map((activity) => ({
       id: activity.id,
-      user: activity.user_name,
+      user: formatActorName(activity.user_name),
       action: activity.action,
       type: activity.type,
       time: toRelativeTime(activity.created_at),

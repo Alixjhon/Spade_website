@@ -18,7 +18,7 @@ export interface DashboardStat {
 }
 
 export interface RecentActivityItem {
-  id: number;
+  id: string | number;
   user: string;
   action: string;
   type: string;

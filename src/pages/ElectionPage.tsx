@@ -269,7 +269,7 @@ const ElectionPage = () => {
                         </div>
                       </div>
                       <p className="text-sm text-muted-foreground mb-4">{candidate.manifesto}</p>
-                      {election.resultsVisible && (
+                      {election?.resultsVisible && (
                         <div className="space-y-2 mb-4">
                           <div className="flex justify-between text-sm">
                             <span className="text-muted-foreground">Votes</span>

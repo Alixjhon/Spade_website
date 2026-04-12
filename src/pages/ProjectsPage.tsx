@@ -506,7 +506,7 @@ const ProjectsPage = () => {
                     <Calendar
                       mode="single"
                       selected={newActivity.deadline || undefined}
-                      onSelect={(date) => setNewActivity({ ...newActivity, deadline: date })}
+                      onSelect={(date) => setNewActivity({ ...newActivity, deadline: date ?? null })}
                       initialFocus
                     />
                   </PopoverContent>

@@ -582,6 +582,10 @@ const MeetingsPage = () => {
 
     async function joinRoom() {
       try {
+        if (!user) {
+          return;
+        }
+
         const room = await api.joinMeetingRoom(selectedRoomId, {
           peerId: selfPeerId,
           name: user.name,
