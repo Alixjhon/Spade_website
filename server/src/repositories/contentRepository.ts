@@ -56,9 +56,21 @@ export async function createEvent(input: CreateEventInput) {
 
 export async function listProjects() {
   const result = await pool.query(
-    `SELECT id, title, description, role, type, submitted_at, activity_id, file_name, file_url, submitted_by_email
+    `SELECT
+       projects.id,
+       projects.title,
+       projects.description,
+       projects.role,
+       projects.type,
+       projects.submitted_at,
+       projects.activity_id,
+       classroom_activities.title AS activity_title,
+       projects.file_name,
+       projects.file_url,
+       projects.submitted_by_email
      FROM projects
-     ORDER BY submitted_at DESC, id DESC`,
+     LEFT JOIN classroom_activities ON classroom_activities.id = projects.activity_id
+     ORDER BY projects.submitted_at DESC, projects.id DESC`,
   );
   return result.rows as ProjectRecord[];
 }
@@ -77,7 +89,18 @@ export async function createProject(input: CreateProjectInput & { role: string; 
       submitted_by_email
     )
     VALUES ($1, $2, $3, $4, CURRENT_DATE, $5, $6, $7, $8)
-    RETURNING id, title, description, role, type, submitted_at, activity_id, file_name, file_url, submitted_by_email`,
+    RETURNING
+      id,
+      title,
+      description,
+      role,
+      type,
+      submitted_at,
+      activity_id,
+      NULL::text AS activity_title,
+      file_name,
+      file_url,
+      submitted_by_email`,
     [
       input.title,
       input.description,

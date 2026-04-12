@@ -90,9 +90,21 @@ export interface ProjectRecord {
   type: string;
   submitted_at: string | Date;
   activity_id?: number | null;
+  activity_title?: string | null;
   file_name?: string;
   file_url?: string;
   submitted_by_email?: string;
+}
+
+export interface ClassroomActivityRecord {
+  id: number;
+  title: string;
+  description: string;
+  deadline: string | Date | null;
+  points: number;
+  classroom_id: string;
+  created_by_email: string;
+  created_at: string | Date;
 }
 
 export interface CreateProjectInput {

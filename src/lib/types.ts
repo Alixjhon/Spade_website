@@ -77,6 +77,7 @@ export interface ProjectItem {
   type: string;
   date: string;
   activityId: number | null;
+  linkedActivityTitle?: string;
   fileName: string;
   fileUrl: string;
   submittedByEmail: string;

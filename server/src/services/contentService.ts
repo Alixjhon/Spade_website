@@ -1,6 +1,6 @@
 import { toDateOnly } from "../lib/date.js";
 import { AppError } from "../lib/appError.js";
-import { createActivity as logActivity, listActivities, createClassroomActivity } from "../repositories/activityRepository.js";
+import { createActivity as logActivity, createClassroomActivity, findActivityById, listActivities } from "../repositories/activityRepository.js";
 import { createEvent, createProject, getLatestMeeting, listEvents, listProjects } from "../repositories/contentRepository.js";
 import type { CreateEventInput, CreateProjectInput, EventRecord, ProjectRecord } from "../types/domain.js";
 
@@ -38,6 +38,7 @@ function mapProject(row: ProjectRecord) {
     type: row.type,
     date: toDateOnly(row.submitted_at),
     activityId: row.activity_id ?? null,
+    linkedActivityTitle: row.activity_title ?? "",
     fileName: row.file_name ?? "",
     fileUrl: row.file_url ?? "",
     submittedByEmail: row.submitted_by_email ?? "",
@@ -133,8 +134,7 @@ export async function submitProject(input: CreateProjectInput) {
     throw new AppError("Submitting user is required.", 400);
   }
 
-  const activities = await listActivities();
-  const activity = activities.find((row) => row.id === input.activityId);
+  const activity = await findActivityById(input.activityId);
 
   if (!activity) {
     throw new AppError("Selected activity was not found.", 404);

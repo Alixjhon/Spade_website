@@ -4,8 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "node --env-file-if-exists=.env ../node_modules/tsx/dist/cli.mjs src/index.ts",
-    "build": "node ../node_modules/typescript/bin/tsc -p ../tsconfig.server.build.json",
+    "build": "node ../node_modules/typescript/bin/tsc -p tsconfig.build.json",
     "start": "node --env-file-if-exists=.env dist/index.js",
-    "typecheck": "node ../node_modules/typescript/bin/tsc -p ../tsconfig.server.json --noEmit"
+    "typecheck": "node ../node_modules/typescript/bin/tsc -p tsconfig.json --noEmit"
   }
 }

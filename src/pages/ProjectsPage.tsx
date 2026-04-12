@@ -428,8 +428,6 @@ const ProjectsPage = () => {
                         {classroom.projects.map((project) => {
                           const TypeIcon = typeIcons[project.type] || FileText;
 
-                          const linkedActivity = classroom.activities.find((activity) => activity.id === project.activityId);
-
                           return (
                             <article key={project.id} className="rounded-[1.75rem] border border-border/50 bg-[linear-gradient(180deg,rgba(255,255,255,0.8),rgba(248,250,252,0.88))] p-5 transition hover:border-primary/30 hover:shadow-sm">
                               <div className="mb-4 flex items-start justify-between gap-3">
@@ -448,10 +446,10 @@ const ProjectsPage = () => {
                               </div>
 
                               <p className="line-clamp-3 text-sm leading-6 text-muted-foreground">{project.description}</p>
-                              {linkedActivity ? (
+                              {project.linkedActivityTitle ? (
                                 <div className="mt-4 rounded-2xl border border-border/50 bg-background/55 px-4 py-3">
                                   <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Linked Activity</p>
-                                  <p className="mt-1 font-medium text-foreground">{linkedActivity.title}</p>
+                                  <p className="mt-1 font-medium text-foreground">{project.linkedActivityTitle}</p>
                                 </div>
                               ) : null}
                             </article>

@@ -1,5 +1,6 @@
 import type { PoolClient } from "pg";
 import { pool } from "../db/pool.js";
+import type { ClassroomActivityRecord } from "../types/domain.js";
 
 type QueryExecutor = Pick<PoolClient, "query">;
 
@@ -19,9 +20,27 @@ export async function listRecentActivities(): Promise<Array<{ id: number; user_n
   return result.rows as Array<{ id: number; user_name: string; action: string; type: string; created_at: string }>;
 }
 
-export async function listActivities(): Promise<any[]> {
-  const result = await pool.query("SELECT * FROM classroom_activities ORDER BY created_at DESC");
-  return result.rows;
+const classroomActivitySelect = `
+  SELECT
+    id,
+    title,
+    description,
+    deadline,
+    points,
+    classroom_id,
+    created_by_email,
+    created_at
+  FROM classroom_activities
+`;
+
+export async function listActivities(): Promise<ClassroomActivityRecord[]> {
+  const result = await pool.query(`${classroomActivitySelect} ORDER BY created_at DESC, id DESC`);
+  return result.rows as ClassroomActivityRecord[];
+}
+
+export async function findActivityById(id: number): Promise<ClassroomActivityRecord | null> {
+  const result = await pool.query(`${classroomActivitySelect} WHERE id = $1 LIMIT 1`, [id]);
+  return (result.rows[0] as ClassroomActivityRecord | undefined) ?? null;
 }
 
 export async function createClassroomActivity(data: {
@@ -31,13 +50,21 @@ export async function createClassroomActivity(data: {
   points: number;
   classroomId: string;
   createdByEmail: string;
-}): Promise<any> {
+}): Promise<ClassroomActivityRecord> {
   const result = await pool.query(
     `INSERT INTO classroom_activities 
     (title, description, deadline, points, classroom_id, created_by_email)
     VALUES ($1, $2, $3, $4, $5, $6)
-    RETURNING *`,
-    [data.title, data.description, data.deadline, data.points, data.classroomId, data.createdByEmail]
+    RETURNING
+      id,
+      title,
+      description,
+      deadline,
+      points,
+      classroom_id,
+      created_by_email,
+      created_at`,
+    [data.title, data.description, data.deadline, data.points, data.classroomId, data.createdByEmail],
   );
-  return result.rows[0];
+  return result.rows[0] as ClassroomActivityRecord;
 }
