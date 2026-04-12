@@ -19,6 +19,10 @@ import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
 import type { EventItem } from "@/lib/types";
 
+type EventsResponse = Awaited<ReturnType<typeof api.getEvents>>;
+type CreateEventPayload = Parameters<typeof api.createEvent>[0];
+type CreateEventResponse = Awaited<ReturnType<typeof api.createEvent>>;
+
 const categoryColors: Record<string, string> = {
   Workshop: "bg-blue-100 text-blue-700 hover:bg-blue-100 border-blue-200",
   Competition: "bg-amber-100 text-amber-700 hover:bg-amber-100 border-amber-200",
@@ -62,10 +66,10 @@ export default function EventsPage() {
     queryFn: api.getEvents,
   });
 
-  const createEventMutation = useMutation({
+  const createEventMutation = useMutation<CreateEventResponse, Error, CreateEventPayload>({
     mutationFn: api.createEvent,
     onSuccess: ({ event }) => {
-      queryClient.setQueryData<{ events: EventItem[] } | undefined>(["events"], (current) => ({
+      queryClient.setQueryData<EventsResponse | undefined>(["events"], (current) => ({
         events: [...(current?.events ?? []), event].sort((a, b) =>
           `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`),
         ),
@@ -178,7 +182,7 @@ export default function EventsPage() {
     const updatedRegistered = [...registeredEvents, eventId];
     setRegisteredEvents(updatedRegistered);
     localStorage.setItem("registeredEvents", JSON.stringify(updatedRegistered));
-    queryClient.setQueryData<{ events: EventItem[] } | undefined>(["events"], (current) => {
+    queryClient.setQueryData<EventsResponse | undefined>(["events"], (current) => {
       if (!current) {
         return current;
       }
@@ -264,8 +268,10 @@ export default function EventsPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Category</Label>
+                      <Label htmlFor="event-category">Category</Label>
                       <select
+                        id="event-category"
+                        title="Event category"
                         name="category"
                         value={form.category}
                         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -365,7 +371,7 @@ export default function EventsPage() {
           </div>
         ) : null}
 
-        {events.map((event) => (
+        {events.map((event: EventItem) => (
           <div
             key={event.id}
             className="group flex flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl"
@@ -414,7 +420,7 @@ export default function EventsPage() {
         ))}
       </div>
 
-      <Dialog open={!!selectedEvent} onOpenChange={(isOpen) => (!isOpen ? setSelectedEvent(null) : undefined)}>
+      <Dialog open={!!selectedEvent} onOpenChange={(isOpen: boolean) => (!isOpen ? setSelectedEvent(null) : undefined)}>
         <DialogContent className="max-w-2xl overflow-hidden rounded-3xl border-none p-0">
           {selectedEvent ? (
             <div className="flex flex-col">

@@ -611,14 +611,17 @@ const ProjectsPage = () => {
 
               <div className="space-y-2">
                 <input
+                  id="project-file-upload"
                   ref={fileInputRef}
                   type="file"
                   className="hidden"
+                  aria-label="Project file"
+                  title="Project file"
                   onChange={(e) => {
                     void handleFileSelect(e);
                   }}
                 />
-                <label className="text-sm font-medium">Project File</label>
+                <label htmlFor="project-file-upload" className="text-sm font-medium">Project File</label>
                 <Button
                   type="button"
                   variant="outline"
