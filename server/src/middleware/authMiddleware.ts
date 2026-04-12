@@ -2,6 +2,12 @@ import { Request, Response, NextFunction } from "express";
 import { env } from "../config/env.js";
 import { AppError } from "../lib/appError.js";
 
+type AuthenticatedRequest = Request & {
+  user?: {
+    email: string;
+  };
+};
+
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -14,7 +20,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
   }
 
   // Attach user info to request
-  (req as any).user = { email: "admin@spade.com" };
+  (req as AuthenticatedRequest).user = { email: "admin@spade.com" };
   next();
 }
 

@@ -5,6 +5,12 @@ import { createEventEntry, getEvents, getMeeting, getProjects, getActivities, cr
 
 export const contentRouter = Router();
 
+type AuthenticatedRequest = {
+  user?: {
+    email: string;
+  };
+};
+
 contentRouter.get(
   "/events",
   asyncHandler(async (_req, res) => {
@@ -17,7 +23,7 @@ contentRouter.post(
   "/events",
   requireAuth,
   asyncHandler(async (req, res) => {
-    const event = await createEventEntry(req.body, (req as any).user?.email || "");
+    const event = await createEventEntry(req.body, (req as AuthenticatedRequest).user?.email || "");
     res.status(201).json({ event });
   }),
 );
@@ -59,7 +65,7 @@ contentRouter.post(
   "/activities",
   requireAuth,
   asyncHandler(async (req, res) => {
-    const activity = await createActivity(req.body, (req as any).user?.email || "");
+    const activity = await createActivity(req.body, (req as AuthenticatedRequest).user?.email || "");
     res.status(201).json({ activity });
   }),
 );
