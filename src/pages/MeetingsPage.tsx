@@ -23,6 +23,7 @@ type PeerConnectionEntry = {
   connection: RTCPeerConnection;
   remoteStream: MediaStream;
   hasSentOffer: boolean;
+  pendingIceCandidates: RTCIceCandidateInit[];
 };
 
 function buildPeerId() {
@@ -292,6 +293,7 @@ const MeetingsPage = () => {
       connection,
       remoteStream,
       hasSentOffer: false,
+      pendingIceCandidates: [],
     };
 
     peersRef.current.set(peer.peerId, entry);
@@ -313,6 +315,25 @@ const MeetingsPage = () => {
     return entry;
   }
 
+  async function flushPendingIceCandidates(entry: PeerConnectionEntry) {
+    if (!entry.connection.remoteDescription) {
+      return;
+    }
+
+    while (entry.pendingIceCandidates.length > 0) {
+      const candidate = entry.pendingIceCandidates.shift();
+      if (!candidate) {
+        continue;
+      }
+
+      try {
+        await entry.connection.addIceCandidate(candidate);
+      } catch {
+        // Ignore stale candidates from a previous connection state.
+      }
+    }
+  }
+
   async function handleSignal(signal: MeetingRoomSignal) {
     const existingPeer = remotePeers.find((peer) => peer.peerId === signal.fromPeerId);
     const entry = await ensurePeerConnection(
@@ -326,6 +347,7 @@ const MeetingsPage = () => {
 
     if (signal.type === "offer") {
       await entry.connection.setRemoteDescription(signal.payload as RTCSessionDescriptionInit);
+      await flushPendingIceCandidates(entry);
       const answer = await entry.connection.createAnswer();
       await entry.connection.setLocalDescription(answer);
       await sendSignal(signal.fromPeerId, "answer", answer);
@@ -334,12 +356,19 @@ const MeetingsPage = () => {
 
     if (signal.type === "answer") {
       await entry.connection.setRemoteDescription(signal.payload as RTCSessionDescriptionInit);
+      await flushPendingIceCandidates(entry);
       return;
     }
 
     if (signal.type === "ice-candidate" && signal.payload) {
+      const candidate = signal.payload as RTCIceCandidateInit;
+      if (!entry.connection.remoteDescription) {
+        entry.pendingIceCandidates.push(candidate);
+        return;
+      }
+
       try {
-        await entry.connection.addIceCandidate(signal.payload as RTCIceCandidateInit);
+        await entry.connection.addIceCandidate(candidate);
       } catch {
         // Ignore candidates that arrive after a connection is gone.
       }
@@ -530,14 +559,14 @@ const MeetingsPage = () => {
 
         const activePeerIds = new Set(roomState.peers.map((peer) => peer.peerId));
 
-        roomState.peers.forEach((peer) => {
-          void ensurePeerConnection(peer, joinedAtRef.current > peer.joinedAt);
-        });
+        for (const peer of roomState.peers) {
+          await ensurePeerConnection(peer, joinedAtRef.current > peer.joinedAt);
+        }
 
-        roomState.signals.forEach((signal) => {
+        for (const signal of roomState.signals) {
           activePeerIds.add(signal.fromPeerId);
-          void handleSignal(signal);
-        });
+          await handleSignal(signal);
+        }
 
         Array.from(peersRef.current.keys()).forEach((peerId) => {
           if (!activePeerIds.has(peerId)) {
@@ -566,9 +595,9 @@ const MeetingsPage = () => {
         setRoomInfo(room.room);
         joinedAtRef.current = room.self.joinedAt;
 
-        room.peers.forEach((peer) => {
-          void ensurePeerConnection(peer, room.self.joinedAt > peer.joinedAt);
-        });
+        for (const peer of room.peers) {
+          await ensurePeerConnection(peer, room.self.joinedAt > peer.joinedAt);
+        }
 
         void pollRoom();
 
