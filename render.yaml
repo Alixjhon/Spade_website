@@ -4,8 +4,9 @@ services:
     runtime: node
     plan: free
     region: singapore
-    buildCommand: npm ci && npm run server:build
-    startCommand: npm run server:start
+    rootDir: server
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start
     healthCheckPath: /api/health
     envVars:
       - key: PORT
@@ -20,6 +21,7 @@ services:
   - name: spade-frontend
     type: web
     runtime: static
+    rootDir: .
     buildCommand: npm ci && npm run build
     staticPublishPath: dist
     envVars:

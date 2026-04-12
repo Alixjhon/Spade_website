@@ -52,8 +52,15 @@ Frontend:
 
 Backend:
 
-- `npm run server:typecheck`
-- `npm run server:build`
+- From repo root:
+  - `npm run server`
+  - `npm run server:typecheck`
+  - `npm run server:build`
+- From `server/`:
+  - `npm run dev`
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run start`
 
 ## Deployment Flow
 
@@ -70,15 +77,60 @@ This repo includes `render.yaml` for Render Blueprint deploys.
 
 Backend on Render:
 
-- Do not set the backend Root Directory to `server/`.
-- The backend must build from the repository root because `package-lock.json` is at the repo root and the backend is built with `npm run server:build`.
+- The backend is now a standalone Node package under `/server`.
 - If you configure the backend manually in the Render dashboard, use:
-  - Build Command: `npm ci && npm run server:build`
-  - Start Command: `npm run server:start`
+  - Root Directory: `server`
+  - Build Command: `npm ci && npm run build`
+  - Start Command: `npm run start`
   - Health Check Path: `/api/health`
+- Required backend environment variables:
+  - `PORT=10000`
+  - `DATABASE_URL`
+  - `ALLOWED_EMAIL_DOMAIN`
+  - `DEFAULT_PASSWORD`
 
 Frontend on Render:
 
+- Root Directory: `.`
 - Build Command: `npm ci && npm run build`
 - Publish Directory: `dist`
 - Set `VITE_API_BASE_URL` to your backend Render URL, for example `https://spade-backend.onrender.com`
+
+### Render Setup Guide
+
+1. Push this repo to GitHub with the latest changes, including `server/package-lock.json` and `render.yaml`.
+2. In Render, choose `New +` then `Blueprint`.
+3. Connect the GitHub repository and select this repo.
+4. Render will detect `render.yaml` and propose two services:
+   - `spade-backend`
+   - `spade-frontend`
+5. For the backend service, fill in:
+   - `DATABASE_URL`
+   - `ALLOWED_EMAIL_DOMAIN`
+   - `DEFAULT_PASSWORD`
+6. For the frontend service, set:
+   - `VITE_API_BASE_URL=https://<your-backend-service>.onrender.com`
+7. Create the services and wait for the first deploy.
+
+### Manual Render Setup
+
+Backend:
+
+- Service type: `Web Service`
+- Root Directory: `server`
+- Build Command: `npm ci && npm run build`
+- Start Command: `npm run start`
+- Health Check Path: `/api/health`
+
+Frontend:
+
+- Service type: `Static Site`
+- Root Directory: `.`
+- Build Command: `npm ci && npm run build`
+- Publish Directory: `dist`
+
+### Notes
+
+- The backend creates and updates its database tables at startup.
+- If you use Render PostgreSQL, copy its Internal or External Database URL into `DATABASE_URL`.
+- If your frontend is calling the wrong API after deploy, the usual cause is an incorrect `VITE_API_BASE_URL`.
