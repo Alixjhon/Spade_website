@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { OFFICER_POSITIONS, OfficerRoleId } from "@/lib/roles";
-import { mockCandidates } from "@/lib/mock-data";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { OFFICER_POSITIONS } from "@/lib/roles";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -11,120 +11,148 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CheckCircle2, Vote, CalendarIcon, UserPlus, Trophy, Clock } from "lucide-react";
 import { toast } from "sonner";
-import { format, isWithinInterval, isBefore } from "date-fns";
+import { addDays, format } from "date-fns";
 import { cn } from "@/lib/utils";
-
-interface ElectionCycle {
-  id: number;
-  filingStart: Date;
-  filingEnd: Date;
-  votingStart: Date;
-  votingEnd: Date;
-  status: "upcoming" | "filing" | "voting" | "completed";
-}
-
-interface Candidacy {
-  id: number;
-  name: string;
-  position: OfficerRoleId;
-  manifesto: string;
-  votes: number;
-}
-
-const now = new Date();
-
-const mockElection: ElectionCycle = {
-  id: 1,
-  filingStart: new Date(2026, 3, 1),
-  filingEnd: new Date(2026, 3, 15),
-  votingStart: new Date(2026, 3, 16),
-  votingEnd: new Date(2026, 3, 30),
-  status: "filing",
-};
+import { api } from "@/lib/api";
+import { useAuth } from "@/components/AuthProvider";
 
 const ElectionPage = () => {
-  const [election, setElection] = useState<ElectionCycle>(mockElection);
-  const [candidates, setCandidates] = useState<Candidacy[]>([
-    { id: 1, name: "Maria Santos", position: "president", manifesto: "Building a stronger community through innovation.", votes: 45 },
-    { id: 2, name: "John Doe", position: "president", manifesto: "Empowering every member to reach their potential.", votes: 38 },
-    { id: 3, name: "Sarah Lee", position: "vice-president", manifesto: "Bridging departments for unified growth.", votes: 62 },
-  ]);
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const { data } = useQuery({
+    queryKey: ["election", user?.email],
+    queryFn: () => api.getElection(user?.email),
+    enabled: Boolean(user?.email),
+  });
+
+  const election = data?.election;
+  const candidates = data?.candidates ?? [];
+  const votedPositions = data?.votedPositions ?? [];
   const [fileDialogOpen, setFileDialogOpen] = useState(false);
   const [selectedPosition, setSelectedPosition] = useState<string>("");
   const [manifesto, setManifesto] = useState("");
   const [voteConfirmOpen, setVoteConfirmOpen] = useState(false);
   const [selectedCandidateId, setSelectedCandidateId] = useState<number | null>(null);
-  const [votedPositions, setVotedPositions] = useState<string[]>([]);
-
-  // Admin: date pickers
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [filingStart, setFilingStart] = useState<Date | undefined>(election.filingStart);
-  const [filingEnd, setFilingEnd] = useState<Date | undefined>(election.filingEnd);
-  const [votingStart, setVotingStart] = useState<Date | undefined>(election.votingStart);
-  const [votingEnd, setVotingEnd] = useState<Date | undefined>(election.votingEnd);
+  const [filingStart, setFilingStart] = useState<Date | undefined>();
+  const [filingEnd, setFilingEnd] = useState<Date | undefined>();
+  const [votingStart, setVotingStart] = useState<Date | undefined>();
+  const [votingEnd, setVotingEnd] = useState<Date | undefined>();
 
-  const isFilingOpen = election.status === "filing";
-  const isVotingOpen = election.status === "voting";
+  const isFilingOpen = election?.status === "filing";
+  const isVotingOpen = election?.status === "voting";
+  const canManageElection = user?.role === "president";
+  const hasElection = Boolean(election);
+
+  const refreshElection = () => {
+    queryClient.invalidateQueries({ queryKey: ["election"] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+  };
+
+  const fileCandidacyMutation = useMutation({
+    mutationFn: api.fileCandidacy,
+    onSuccess: () => {
+      toast.success("Candidacy filed successfully!");
+      setFileDialogOpen(false);
+      setSelectedPosition("");
+      setManifesto("");
+      refreshElection();
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const voteMutation = useMutation({
+    mutationFn: api.vote,
+    onSuccess: () => {
+      toast.success("Vote cast successfully!");
+      setVoteConfirmOpen(false);
+      setSelectedCandidateId(null);
+      refreshElection();
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const updateSettingsMutation = useMutation({
+    mutationFn: api.updateElectionSettings,
+    onSuccess: () => {
+      toast.success("Election schedule updated!");
+      setSettingsOpen(false);
+      refreshElection();
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const positionsWithCandidates = OFFICER_POSITIONS.map((pos) => ({
+    ...pos,
+    candidates: candidates.filter((candidate) => candidate.position === pos.id),
+  }));
+
+  const openSettings = () => {
+    const today = new Date();
+    setFilingStart(election ? new Date(election.filingStart) : today);
+    setFilingEnd(election ? new Date(election.filingEnd) : addDays(today, 7));
+    setVotingStart(election ? new Date(election.votingStart) : addDays(today, 8));
+    setVotingEnd(election ? new Date(election.votingEnd) : addDays(today, 14));
+    setSettingsOpen(true);
+  };
 
   const handleFileCandidacy = () => {
+    if (!user) return;
     if (!selectedPosition || !manifesto.trim()) {
       toast.error("Please select a position and write your manifesto");
       return;
     }
-    const newCandidate: Candidacy = {
-      id: Date.now(),
-      name: "You",
-      position: selectedPosition as OfficerRoleId,
+
+    fileCandidacyMutation.mutate({
+      email: user.email,
+      position: selectedPosition,
       manifesto: manifesto.trim(),
-      votes: 0,
-    };
-    setCandidates([...candidates, newCandidate]);
-    toast.success("Candidacy filed successfully!");
-    setFileDialogOpen(false);
-    setSelectedPosition("");
-    setManifesto("");
+    });
   };
 
   const handleVote = () => {
-    if (selectedCandidateId === null) return;
-    const candidate = candidates.find(c => c.id === selectedCandidateId);
-    if (!candidate) return;
-    setCandidates(prev => prev.map(c => c.id === selectedCandidateId ? { ...c, votes: c.votes + 1 } : c));
-    setVotedPositions([...votedPositions, candidate.position]);
-    toast.success("Vote cast successfully!");
-    setVoteConfirmOpen(false);
-    setSelectedCandidateId(null);
+    if (!user || selectedCandidateId === null) return;
+    voteMutation.mutate({ email: user.email, candidateId: selectedCandidateId });
   };
 
   const handleSaveSettings = () => {
-    if (filingStart && filingEnd && votingStart && votingEnd) {
-      setElection({
-        ...election,
-        filingStart,
-        filingEnd,
-        votingStart,
-        votingEnd,
-      });
-      toast.success("Election schedule updated!");
-      setSettingsOpen(false);
-    } else {
-      toast.error("Please set all dates");
+    if (!user?.email) {
+      toast.error("You must be signed in as the president to set the election schedule");
+      return;
     }
+
+    if (!filingStart || !filingEnd || !votingStart || !votingEnd) {
+      toast.error("Please set all dates");
+      return;
+    }
+
+    const payload = {
+      email: user.email,
+      filingStart: format(filingStart, "yyyy-MM-dd"),
+      filingEnd: format(filingEnd, "yyyy-MM-dd"),
+      votingStart: format(votingStart, "yyyy-MM-dd"),
+      votingEnd: format(votingEnd, "yyyy-MM-dd"),
+    };
+
+    updateSettingsMutation.mutate(payload);
   };
-
-  const positionsWithCandidates = OFFICER_POSITIONS.map(pos => ({
-    ...pos,
-    candidates: candidates.filter(c => c.position === pos.id),
-  }));
-
-  const totalVotes = candidates.reduce((sum, c) => sum + c.votes, 0) || 1;
 
   return (
     <div className="space-y-8 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Elections</h1>
-          <p className="text-muted-foreground mt-1">File candidacy and vote for SPADE officers</p>
+          <p className="text-muted-foreground mt-1">
+            {election
+              ? `Annual officer election for ${election.year}`
+              : "No election schedule yet. The president can set the next annual election."}
+          </p>
         </div>
         <div className="flex gap-2">
           {isFilingOpen && (
@@ -133,73 +161,87 @@ const ElectionPage = () => {
               File Candidacy
             </Button>
           )}
-          <Button variant="outline" onClick={() => setSettingsOpen(true)} className="rounded-xl">
-            <CalendarIcon className="w-4 h-4 mr-2" />
-            Election Settings
-          </Button>
+          {canManageElection && (
+            <Button variant="outline" onClick={openSettings} className="rounded-xl">
+              <CalendarIcon className="w-4 h-4 mr-2" />
+              Election Settings
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* Election Status Banner */}
       <div className="glass-card p-6">
         <div className="flex items-center gap-3 mb-4">
           <Trophy className="w-6 h-6 text-primary" />
-          <h2 className="text-lg font-semibold text-foreground">Election Cycle</h2>
-          <Badge variant={isFilingOpen ? "default" : isVotingOpen ? "secondary" : "outline"}>
-            {election.status === "filing" && "Filing Open"}
-            {election.status === "voting" && "Voting Open"}
-            {election.status === "upcoming" && "Upcoming"}
-            {election.status === "completed" && "Completed"}
-          </Badge>
+          <h2 className="text-lg font-semibold text-foreground">
+            {election ? `Election Cycle ${election.year}` : "Election Cycle"}
+          </h2>
+          {election ? (
+            <Badge variant={isFilingOpen ? "default" : isVotingOpen ? "secondary" : "outline"}>
+              {election.status === "filing" && "Filing Open"}
+              {election.status === "voting" && "Voting Open"}
+              {election.status === "upcoming" && "Upcoming"}
+              {election.status === "completed" && "Completed"}
+            </Badge>
+          ) : (
+            <Badge variant="outline">No Schedule</Badge>
+          )}
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
-          <div className="flex items-center gap-2">
-            <Clock className="w-4 h-4 text-muted-foreground" />
-            <div>
-              <p className="text-muted-foreground">Filing Start</p>
-              <p className="font-medium text-foreground">{format(election.filingStart, "MMM d, yyyy")}</p>
+        {election ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-muted-foreground" />
+              <div>
+                <p className="text-muted-foreground">Filing Start</p>
+                <p className="font-medium text-foreground">{format(new Date(election.filingStart), "MMM d, yyyy")}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-muted-foreground" />
+              <div>
+                <p className="text-muted-foreground">Filing End</p>
+                <p className="font-medium text-foreground">{format(new Date(election.filingEnd), "MMM d, yyyy")}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-muted-foreground" />
+              <div>
+                <p className="text-muted-foreground">Voting Start</p>
+                <p className="font-medium text-foreground">{format(new Date(election.votingStart), "MMM d, yyyy")}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-muted-foreground" />
+              <div>
+                <p className="text-muted-foreground">Voting End</p>
+                <p className="font-medium text-foreground">{format(new Date(election.votingEnd), "MMM d, yyyy")}</p>
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Clock className="w-4 h-4 text-muted-foreground" />
-            <div>
-              <p className="text-muted-foreground">Filing End</p>
-              <p className="font-medium text-foreground">{format(election.filingEnd, "MMM d, yyyy")}</p>
-            </div>
+        ) : (
+          <div className="rounded-2xl border border-dashed border-border/60 bg-muted/20 p-5 text-sm text-muted-foreground">
+            No election has been scheduled yet. Once the president sets the filing and voting dates, the annual election will appear here.
           </div>
-          <div className="flex items-center gap-2">
-            <Clock className="w-4 h-4 text-muted-foreground" />
-            <div>
-              <p className="text-muted-foreground">Voting Start</p>
-              <p className="font-medium text-foreground">{format(election.votingStart, "MMM d, yyyy")}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Clock className="w-4 h-4 text-muted-foreground" />
-            <div>
-              <p className="text-muted-foreground">Voting End</p>
-              <p className="font-medium text-foreground">{format(election.votingEnd, "MMM d, yyyy")}</p>
-            </div>
-          </div>
-        </div>
+        )}
       </div>
 
-      {/* Candidates by Position */}
       <Tabs defaultValue={OFFICER_POSITIONS[0].id} className="space-y-6">
         <TabsList className="flex-wrap h-auto gap-1 bg-muted/50 rounded-xl p-1">
-          {OFFICER_POSITIONS.map(pos => (
+          {OFFICER_POSITIONS.map((pos) => (
             <TabsTrigger key={pos.id} value={pos.id} className="rounded-lg text-xs sm:text-sm">
               {pos.label}
             </TabsTrigger>
           ))}
         </TabsList>
 
-        {positionsWithCandidates.map(pos => (
+        {positionsWithCandidates.map((pos) => (
           <TabsContent key={pos.id} value={pos.id} className="space-y-4">
             {pos.candidates.length === 0 ? (
               <div className="glass-card p-8 text-center">
                 <Vote className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-                <p className="text-muted-foreground">No candidates yet for {pos.label}</p>
+                <p className="text-muted-foreground">
+                  {hasElection ? `No candidates yet for ${pos.label}` : `No election result available yet for ${pos.label}`}
+                </p>
                 {isFilingOpen && (
                   <Button onClick={() => { setSelectedPosition(pos.id); setFileDialogOpen(true); }} className="mt-4 gradient-primary text-primary-foreground rounded-xl">
                     Be the first to file!
@@ -208,9 +250,9 @@ const ElectionPage = () => {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {pos.candidates.map(candidate => {
+                {pos.candidates.map((candidate) => {
                   const hasVoted = votedPositions.includes(candidate.position);
-                  const posTotal = pos.candidates.reduce((s, c) => s + c.votes, 0) || 1;
+                  const posTotal = pos.candidates.reduce((sum, item) => sum + item.votes, 0) || 1;
                   const pct = Math.round((candidate.votes / posTotal) * 100);
 
                   return (
@@ -218,7 +260,7 @@ const ElectionPage = () => {
                       <div className="flex items-center gap-4 mb-4">
                         <div className="w-14 h-14 rounded-full gradient-primary flex items-center justify-center">
                           <span className="text-lg font-bold text-primary-foreground">
-                            {candidate.name.split(" ").map(n => n[0]).join("")}
+                            {candidate.name.split(" ").map((n) => n[0]).join("")}
                           </span>
                         </div>
                         <div>
@@ -227,7 +269,7 @@ const ElectionPage = () => {
                         </div>
                       </div>
                       <p className="text-sm text-muted-foreground mb-4">{candidate.manifesto}</p>
-                      {(isVotingOpen || election.status === "completed") && (
+                      {election.resultsVisible && (
                         <div className="space-y-2 mb-4">
                           <div className="flex justify-between text-sm">
                             <span className="text-muted-foreground">Votes</span>
@@ -259,7 +301,6 @@ const ElectionPage = () => {
         ))}
       </Tabs>
 
-      {/* File Candidacy Dialog */}
       <Dialog open={fileDialogOpen} onOpenChange={setFileDialogOpen}>
         <DialogContent className="glass-card-elevated">
           <DialogHeader>
@@ -274,7 +315,7 @@ const ElectionPage = () => {
                   <SelectValue placeholder="Select position" />
                 </SelectTrigger>
                 <SelectContent>
-                  {OFFICER_POSITIONS.map(pos => (
+                  {OFFICER_POSITIONS.map((pos) => (
                     <SelectItem key={pos.id} value={pos.id}>{pos.label}</SelectItem>
                   ))}
                 </SelectContent>
@@ -284,7 +325,7 @@ const ElectionPage = () => {
               <label className="text-sm font-medium text-foreground">Manifesto</label>
               <textarea
                 value={manifesto}
-                onChange={e => setManifesto(e.target.value)}
+                onChange={(e) => setManifesto(e.target.value)}
                 placeholder="Write your platform and goals..."
                 className="w-full min-h-[100px] rounded-xl border border-border/50 bg-muted/50 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
@@ -297,7 +338,6 @@ const ElectionPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Vote Confirmation Dialog */}
       <Dialog open={voteConfirmOpen} onOpenChange={setVoteConfirmOpen}>
         <DialogContent className="glass-card-elevated">
           <DialogHeader>
@@ -305,7 +345,7 @@ const ElectionPage = () => {
             <DialogDescription>
               You are voting for{" "}
               <span className="font-semibold text-foreground">
-                {candidates.find(c => c.id === selectedCandidateId)?.name}
+                {candidates.find((candidate) => candidate.id === selectedCandidateId)?.name}
               </span>
               . This action cannot be undone.
             </DialogDescription>
@@ -317,12 +357,11 @@ const ElectionPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Election Settings Dialog (Admin) */}
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
         <DialogContent className="glass-card-elevated max-w-lg">
           <DialogHeader>
             <DialogTitle>Election Schedule Settings</DialogTitle>
-            <DialogDescription>Set the filing and voting periods for this election cycle.</DialogDescription>
+            <DialogDescription>Set the filing and voting dates for the annual election. Results appear automatically after voting ends.</DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-2">
             {[
@@ -346,19 +385,6 @@ const ElectionPage = () => {
                 </Popover>
               </div>
             ))}
-          </div>
-          <div className="flex gap-2 pt-2">
-            <Select value={election.status} onValueChange={(v) => setElection({ ...election, status: v as ElectionCycle["status"] })}>
-              <SelectTrigger className="rounded-xl">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="upcoming">Upcoming</SelectItem>
-                <SelectItem value="filing">Filing Open</SelectItem>
-                <SelectItem value="voting">Voting Open</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setSettingsOpen(false)} className="rounded-xl">Cancel</Button>

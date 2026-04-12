@@ -15,6 +15,7 @@ export const OFFICER_POSITIONS = [
 ] as const;
 
 export const ROLES = [
+  { id: "member", label: "Member", icon: "User" },
   ...OFFICER_POSITIONS,
   ...APPLICANT_ROLES,
 ] as const;
