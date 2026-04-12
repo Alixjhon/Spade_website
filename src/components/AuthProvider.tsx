@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import type { User } from "@/lib/types";
+import { clearAuthToken } from "@/lib/api";
 
 const STORAGE_KEY = "spade.user";
 
@@ -41,6 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signOut: () => {
         setUser(null);
         window.localStorage.removeItem(STORAGE_KEY);
+        clearAuthToken();
       },
     }),
     [isReady, user],

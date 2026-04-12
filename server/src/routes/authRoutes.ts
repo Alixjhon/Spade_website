@@ -7,8 +7,8 @@ export const authRouter = Router();
 authRouter.post(
   "/login",
   asyncHandler(async (req, res) => {
-    const user = await login(req.body?.email as string, req.body?.password as string);
-    res.json({ user });
+    const result = await login(req.body?.email as string, req.body?.password as string);
+    res.json(result);
   }),
 );
 

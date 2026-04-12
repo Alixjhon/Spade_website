@@ -17,12 +17,23 @@ export interface DashboardStat {
   icon: string;
 }
 
-export interface ActivityItem {
+export interface RecentActivityItem {
   id: number;
   user: string;
   action: string;
   type: string;
   time: string;
+}
+
+export interface ClassroomActivityItem {
+  id: number;
+  title: string;
+  description: string;
+  deadline: string | null;
+  points: number;
+  classroomId: string;
+  createdByEmail: string;
+  createdAt?: string;
 }
 
 export interface Applicant {
@@ -65,6 +76,10 @@ export interface ProjectItem {
   role: string;
   type: string;
   date: string;
+  activityId: number | null;
+  fileName: string;
+  fileUrl: string;
+  submittedByEmail: string;
 }
 
 export interface MeetingParticipant {

@@ -1,5 +1,5 @@
 import { pool } from "../db/pool.js";
-import type { CreateEventInput, EventRecord } from "../types/domain.js";
+import type { CreateEventInput, CreateProjectInput, EventRecord, ProjectRecord } from "../types/domain.js";
 
 export async function countProjects(): Promise<number> {
   const result = await pool.query("SELECT COUNT(*)::int AS count FROM projects");
@@ -56,11 +56,41 @@ export async function createEvent(input: CreateEventInput) {
 
 export async function listProjects() {
   const result = await pool.query(
-    `SELECT id, title, description, role, type, submitted_at
+    `SELECT id, title, description, role, type, submitted_at, activity_id, file_name, file_url, submitted_by_email
      FROM projects
      ORDER BY submitted_at DESC, id DESC`,
   );
-  return result.rows;
+  return result.rows as ProjectRecord[];
+}
+
+export async function createProject(input: CreateProjectInput & { role: string; type: string }) {
+  const result = await pool.query(
+    `INSERT INTO projects (
+      title,
+      description,
+      role,
+      type,
+      submitted_at,
+      activity_id,
+      file_name,
+      file_url,
+      submitted_by_email
+    )
+    VALUES ($1, $2, $3, $4, CURRENT_DATE, $5, $6, $7, $8)
+    RETURNING id, title, description, role, type, submitted_at, activity_id, file_name, file_url, submitted_by_email`,
+    [
+      input.title,
+      input.description,
+      input.role,
+      input.type,
+      input.activityId,
+      input.fileName,
+      input.fileUrl,
+      input.submittedByEmail,
+    ],
+  );
+
+  return result.rows[0] as ProjectRecord;
 }
 
 export async function getLatestMeeting() {

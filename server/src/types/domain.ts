@@ -81,3 +81,25 @@ export interface CreateEventInput {
   socialCaption: string;
   createdByEmail: string;
 }
+
+export interface ProjectRecord {
+  id: number;
+  title: string;
+  description: string;
+  role: string;
+  type: string;
+  submitted_at: string | Date;
+  activity_id?: number | null;
+  file_name?: string;
+  file_url?: string;
+  submitted_by_email?: string;
+}
+
+export interface CreateProjectInput {
+  activityId: number;
+  title: string;
+  description: string;
+  fileUrl: string;
+  fileName: string;
+  submittedByEmail: string;
+}

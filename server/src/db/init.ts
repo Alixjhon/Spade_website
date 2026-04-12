@@ -38,6 +38,17 @@ export async function initializeDatabase(): Promise<void> {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
+    CREATE TABLE IF NOT EXISTS classroom_activities (
+      id SERIAL PRIMARY KEY,
+      title TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      deadline DATE,
+      points INTEGER NOT NULL DEFAULT 100,
+      classroom_id TEXT NOT NULL,
+      created_by_email TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
     CREATE TABLE IF NOT EXISTS events (
       id SERIAL PRIMARY KEY,
       title TEXT NOT NULL,
@@ -145,6 +156,68 @@ export async function initializeDatabase(): Promise<void> {
     ALTER TABLE events ADD COLUMN IF NOT EXISTS image_url TEXT NOT NULL DEFAULT '';
     ALTER TABLE events ADD COLUMN IF NOT EXISTS social_caption TEXT NOT NULL DEFAULT '';
     ALTER TABLE events ADD COLUMN IF NOT EXISTS created_by_email TEXT NOT NULL DEFAULT '';
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS activity_id INTEGER;
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS file_name TEXT NOT NULL DEFAULT '';
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS file_url TEXT NOT NULL DEFAULT '';
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS submitted_by_email TEXT NOT NULL DEFAULT '';
+  `);
+
+  await pool.query(`
+    SELECT setval(
+      pg_get_serial_sequence('users', 'id'),
+      COALESCE((SELECT MAX(id) FROM users), 0) + 1,
+      false
+    );
+    SELECT setval(
+      pg_get_serial_sequence('applicant_projects', 'id'),
+      COALESCE((SELECT MAX(id) FROM applicant_projects), 0) + 1,
+      false
+    );
+    SELECT setval(
+      pg_get_serial_sequence('activities', 'id'),
+      COALESCE((SELECT MAX(id) FROM activities), 0) + 1,
+      false
+    );
+    SELECT setval(
+      pg_get_serial_sequence('classroom_activities', 'id'),
+      COALESCE((SELECT MAX(id) FROM classroom_activities), 0) + 1,
+      false
+    );
+    SELECT setval(
+      pg_get_serial_sequence('events', 'id'),
+      COALESCE((SELECT MAX(id) FROM events), 0) + 1,
+      false
+    );
+    SELECT setval(
+      pg_get_serial_sequence('projects', 'id'),
+      COALESCE((SELECT MAX(id) FROM projects), 0) + 1,
+      false
+    );
+    SELECT setval(
+      pg_get_serial_sequence('meetings', 'id'),
+      COALESCE((SELECT MAX(id) FROM meetings), 0) + 1,
+      false
+    );
+    SELECT setval(
+      pg_get_serial_sequence('meeting_rooms', 'id'),
+      COALESCE((SELECT MAX(id) FROM meeting_rooms), 0) + 1,
+      false
+    );
+    SELECT setval(
+      pg_get_serial_sequence('elections', 'id'),
+      COALESCE((SELECT MAX(id) FROM elections), 0) + 1,
+      false
+    );
+    SELECT setval(
+      pg_get_serial_sequence('candidates', 'id'),
+      COALESCE((SELECT MAX(id) FROM candidates), 0) + 1,
+      false
+    );
+    SELECT setval(
+      pg_get_serial_sequence('votes', 'id'),
+      COALESCE((SELECT MAX(id) FROM votes), 0) + 1,
+      false
+    );
   `);
 
   await pool.query(`

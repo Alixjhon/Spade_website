@@ -1,8 +1,8 @@
 import type {
   Applicant,
   Candidate,
+  ClassroomActivityItem,
   DashboardStat,
-  ActivityItem,
   Election,
   EventItem,
   Meeting,
@@ -10,15 +10,36 @@ import type {
   MeetingRoomPeer,
   MeetingRoomSignal,
   ProjectItem,
+  RecentActivityItem,
   User,
 } from "@/lib/types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
+const AUTH_TOKEN_KEY = "spade.authToken";
+
+export function getAuthToken() {
+  return typeof window === "undefined" ? "" : window.localStorage.getItem(AUTH_TOKEN_KEY) || "";
+}
+
+export function setAuthToken(token: string) {
+  if (typeof window !== "undefined") {
+    window.localStorage.setItem(AUTH_TOKEN_KEY, token);
+  }
+}
+
+export function clearAuthToken() {
+  if (typeof window !== "undefined") {
+    window.localStorage.removeItem(AUTH_TOKEN_KEY);
+  }
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = getAuthToken();
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
     headers: {
       "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(init?.headers || {}),
     },
     ...init,
@@ -45,7 +66,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   login: (payload: { email: string; password: string }) =>
-    request<{ user: User }>("/api/auth/login", {
+    request<{ user: User; token: string }>("/api/auth/login", {
       method: "POST",
       body: JSON.stringify(payload),
     }),
@@ -85,7 +106,7 @@ export const api = {
     }),
 
   getDashboard: (email: string) =>
-    request<{ user: User; stats: DashboardStat[]; activities: ActivityItem[] }>(
+    request<{ user: User; stats: DashboardStat[]; activities: RecentActivityItem[] }>(
       `/api/dashboard?email=${encodeURIComponent(email)}`,
     ),
 
@@ -122,7 +143,7 @@ export const api = {
     request<{ projects: ProjectItem[] }>("/api/projects"),
 
   getActivities: () =>
-    request<{ activities: ActivityItem[] }>("/api/activities"),
+    request<{ activities: ClassroomActivityItem[] }>("/api/activities"),
 
   createActivity: (payload: {
     title: string;
@@ -131,7 +152,7 @@ export const api = {
     points: number;
     classroomId: string;
   }) =>
-    request<{ activity: ActivityItem }>("/api/activities", {
+    request<{ activity: ClassroomActivityItem }>("/api/activities", {
       method: "POST",
       body: JSON.stringify(payload),
     }),

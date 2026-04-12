@@ -1,8 +1,16 @@
 import { toDateOnly } from "../lib/date.js";
 import { AppError } from "../lib/appError.js";
 import { createActivity as logActivity, listActivities, createClassroomActivity } from "../repositories/activityRepository.js";
-import { createEvent, getLatestMeeting, listEvents, listProjects } from "../repositories/contentRepository.js";
-import type { CreateEventInput, EventRecord } from "../types/domain.js";
+import { createEvent, createProject, getLatestMeeting, listEvents, listProjects } from "../repositories/contentRepository.js";
+import type { CreateEventInput, CreateProjectInput, EventRecord, ProjectRecord } from "../types/domain.js";
+
+interface CreateActivityInput {
+  title: string;
+  description?: string;
+  deadline: string | null;
+  points?: number;
+  classroomId: string;
+}
 
 function mapEvent(row: EventRecord) {
   return {
@@ -18,6 +26,21 @@ function mapEvent(row: EventRecord) {
     imageUrl: row.image_url,
     socialCaption: row.social_caption,
     createdByEmail: row.created_by_email,
+  };
+}
+
+function mapProject(row: ProjectRecord) {
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    role: row.role,
+    type: row.type,
+    date: toDateOnly(row.submitted_at),
+    activityId: row.activity_id ?? null,
+    fileName: row.file_name ?? "",
+    fileUrl: row.file_url ?? "",
+    submittedByEmail: row.submitted_by_email ?? "",
   };
 }
 
@@ -65,21 +88,84 @@ export async function createEventEntry(input: CreateEventInput, creatorEmail: st
     createdByEmail: creatorEmail.trim(),
   });
 
-  await createActivity(event.organizer, `created event: ${event.title}`, "event");
+  await logActivity(event.organizer, `created event: ${event.title}`, "event");
 
   return mapEvent(event);
 }
 
 export async function getProjects() {
   const projects = await listProjects();
-  return projects.map((row) => ({
-    id: row.id,
-    title: row.title,
-    description: row.description,
-    role: row.role,
-    type: row.type,
-    date: toDateOnly(row.submitted_at),
-  }));
+  return projects.map(mapProject);
+}
+
+function inferProjectType(fileName: string) {
+  const extension = fileName.split(".").pop()?.toLowerCase() || "";
+
+  if (["png", "jpg", "jpeg", "gif", "webp", "svg"].includes(extension)) {
+    return "image";
+  }
+
+  if (["pdf", "doc", "docx", "ppt", "pptx", "txt"].includes(extension)) {
+    return "document";
+  }
+
+  return "code";
+}
+
+export async function submitProject(input: CreateProjectInput) {
+  if (!Number.isInteger(input.activityId) || input.activityId <= 0) {
+    throw new AppError("Activity is required.", 400);
+  }
+
+  if (!input.title?.trim()) {
+    throw new AppError("Project title is required.", 400);
+  }
+
+  if (!input.description?.trim()) {
+    throw new AppError("Project description is required.", 400);
+  }
+
+  if (!input.fileUrl?.trim() || !input.fileName?.trim()) {
+    throw new AppError("Project file is required.", 400);
+  }
+
+  if (!input.submittedByEmail?.trim()) {
+    throw new AppError("Submitting user is required.", 400);
+  }
+
+  const activities = await listActivities();
+  const activity = activities.find((row) => row.id === input.activityId);
+
+  if (!activity) {
+    throw new AppError("Selected activity was not found.", 404);
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  if (activity.deadline && activity.deadline < today) {
+    throw new AppError("This activity is already closed. The deadline has passed.", 400);
+  }
+
+  const roleMap: Record<string, string> = {
+    gamedev: "Game Developer",
+    webdev: "Web Developer",
+    softwaredev: "Software Developer",
+    media: "Media Team",
+  };
+
+  const project = await createProject({
+    ...input,
+    title: input.title.trim(),
+    description: input.description.trim(),
+    fileName: input.fileName.trim(),
+    fileUrl: input.fileUrl.trim(),
+    submittedByEmail: input.submittedByEmail.trim(),
+    role: roleMap[activity.classroom_id] ?? activity.classroom_id,
+    type: inferProjectType(input.fileName),
+  });
+
+  await logActivity(input.submittedByEmail.trim(), `submitted project: ${project.title}`, "project");
+
+  return mapProject(project);
 }
 
 export async function getMeeting() {
@@ -111,7 +197,7 @@ export async function getActivities() {
   }));
 }
 
-export async function createActivity(input: any, creatorEmail: string) {
+export async function createActivity(input: CreateActivityInput, creatorEmail: string) {
   if (!input.title.trim()) {
     throw new AppError("Activity title is required.", 400);
   }
@@ -138,5 +224,7 @@ export async function createActivity(input: any, creatorEmail: string) {
     deadline: activity.deadline ? toDateOnly(activity.deadline) : null,
     points: activity.points,
     classroomId: activity.classroom_id,
+    createdByEmail: activity.created_by_email,
+    createdAt: activity.created_at,
   };
 }

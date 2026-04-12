@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { asyncHandler } from "../lib/asyncHandler.js";
 import { requireAuth } from "../middleware/authMiddleware.js";
-import { createEventEntry, getEvents, getMeeting, getProjects, getActivities, createActivity } from "../services/contentService.js";
+import { createEventEntry, getEvents, getMeeting, getProjects, getActivities, createActivity, submitProject } from "../services/contentService.js";
 
 export const contentRouter = Router();
 
@@ -27,6 +27,15 @@ contentRouter.get(
   asyncHandler(async (_req, res) => {
     const projects = await getProjects();
     res.json({ projects });
+  }),
+);
+
+contentRouter.post(
+  "/projects",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const project = await submitProject(req.body);
+    res.status(201).json({ project });
   }),
 );
 

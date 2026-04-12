@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { APPLICANT_ROLES } from "@/lib/roles";
-import { api } from "@/lib/api";
+import { api, setAuthToken } from "@/lib/api";
 import { useAuth } from "@/components/AuthProvider";
 import { toast } from "sonner";
 import loginBg from "@/assets/login-bg.png";
@@ -39,7 +39,8 @@ const LoginPage = () => {
 
   const loginMutation = useMutation({
     mutationFn: api.login,
-    onSuccess: ({ user }) => {
+    onSuccess: ({ user, token }) => {
+      setAuthToken(token);
       signIn(user);
       toast.success("Welcome back!");
       navigate("/dashboard");

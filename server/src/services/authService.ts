@@ -26,15 +26,18 @@ export async function login(email: string, password: string) {
   }
 
   return {
-    id: user.id,
-    name: user.name,
-    email: user.email,
-    role: user.role,
-    location: user.location,
-    course: user.course,
-    yearLevel: user.yearLevel,
-    contactNumber: user.contactNumber,
-    profilePictureUrl: user.profilePictureUrl,
+    user: {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      location: user.location,
+      course: user.course,
+      yearLevel: user.yearLevel,
+      contactNumber: user.contactNumber,
+      profilePictureUrl: user.profilePictureUrl,
+    },
+    token: env.defaultPassword,
   };
 }
 
