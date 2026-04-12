@@ -1,0 +1,27 @@
+services:
+  - name: spade-backend
+    type: web
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm ci && npm run server:build
+    startCommand: npm run server:start
+    healthCheckPath: /api/health
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        sync: false
+      - key: ALLOWED_EMAIL_DOMAIN
+        sync: false
+      - key: DEFAULT_PASSWORD
+        sync: false
+
+  - name: spade-frontend
+    type: web
+    runtime: static
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_BASE_URL
+        sync: false
