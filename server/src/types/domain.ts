@@ -116,6 +116,20 @@ export interface CreateProjectInput {
   submittedByEmail: string;
 }
 
+export interface UpdateProjectInput {
+  title: string;
+  description: string;
+  fileUrl: string;
+  fileName: string;
+}
+
+export interface UpdateActivityInput {
+  title: string;
+  description?: string;
+  deadline: string | null;
+  points?: number;
+}
+
 export interface DashboardActivityRecord {
   id: string;
   user_name: string;

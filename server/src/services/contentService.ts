@@ -1,8 +1,8 @@
 import { toDateOnly } from "../lib/date.js";
 import { AppError } from "../lib/appError.js";
-import { createActivity as logActivity, createClassroomActivity, findActivityById, listActivities } from "../repositories/activityRepository.js";
-import { createEvent, createProject, getLatestMeeting, listEvents, listProjects } from "../repositories/contentRepository.js";
-import type { CreateEventInput, CreateProjectInput, EventRecord, ProjectRecord } from "../types/domain.js";
+import { createActivity as logActivity, createClassroomActivity, findActivityById, listActivities, updateClassroomActivity } from "../repositories/activityRepository.js";
+import { createEvent, createProject, findProjectById, getLatestMeeting, listEvents, listProjects, updateProject } from "../repositories/contentRepository.js";
+import type { CreateEventInput, CreateProjectInput, EventRecord, ProjectRecord, UpdateActivityInput, UpdateProjectInput } from "../types/domain.js";
 
 interface CreateActivityInput {
   title: string;
@@ -10,6 +10,27 @@ interface CreateActivityInput {
   deadline: string | null;
   points?: number;
   classroomId: string;
+}
+
+const classroomRoleMap: Record<string, string> = {
+  gamedev: "Game Developer",
+  webdev: "Web Developer",
+  softwaredev: "Software Developer",
+  media: "Media Team",
+};
+
+function getAccessibleClassroomIds(role: string) {
+  if (role === "president") {
+    return Object.keys(classroomRoleMap);
+  }
+
+  return role in classroomRoleMap ? [role] : [];
+}
+
+function getAccessibleProjectRoles(role: string) {
+  return getAccessibleClassroomIds(role).map(
+    (classroomId) => classroomRoleMap[classroomId],
+  );
 }
 
 function mapEvent(row: EventRecord) {
@@ -94,9 +115,13 @@ export async function createEventEntry(input: CreateEventInput, creatorEmail: st
   return mapEvent(event);
 }
 
-export async function getProjects() {
+export async function getProjects(userRole: string) {
   const projects = await listProjects();
-  return projects.map(mapProject);
+  const accessibleRoles = new Set(getAccessibleProjectRoles(userRole));
+
+  return projects
+    .filter((project) => accessibleRoles.has(project.role))
+    .map(mapProject);
 }
 
 function inferProjectType(fileName: string) {
@@ -113,7 +138,7 @@ function inferProjectType(fileName: string) {
   return "code";
 }
 
-export async function submitProject(input: CreateProjectInput) {
+export async function submitProject(input: CreateProjectInput, userRole: string) {
   if (!Number.isInteger(input.activityId) || input.activityId <= 0) {
     throw new AppError("Activity is required.", 400);
   }
@@ -140,17 +165,15 @@ export async function submitProject(input: CreateProjectInput) {
     throw new AppError("Selected activity was not found.", 404);
   }
 
+  const accessibleClassroomIds = new Set(getAccessibleClassroomIds(userRole));
+  if (!accessibleClassroomIds.has(activity.classroom_id)) {
+    throw new AppError("You do not have access to submit to this classroom activity.", 403);
+  }
+
   const today = new Date().toISOString().slice(0, 10);
   if (activity.deadline && activity.deadline < today) {
     throw new AppError("This activity is already closed. The deadline has passed.", 400);
   }
-
-  const roleMap: Record<string, string> = {
-    gamedev: "Game Developer",
-    webdev: "Web Developer",
-    softwaredev: "Software Developer",
-    media: "Media Team",
-  };
 
   const project = await createProject({
     ...input,
@@ -159,7 +182,7 @@ export async function submitProject(input: CreateProjectInput) {
     fileName: input.fileName.trim(),
     fileUrl: input.fileUrl.trim(),
     submittedByEmail: input.submittedByEmail.trim(),
-    role: roleMap[activity.classroom_id] ?? activity.classroom_id,
+    role: classroomRoleMap[activity.classroom_id] ?? activity.classroom_id,
     type: inferProjectType(input.fileName),
   });
 
@@ -183,18 +206,22 @@ export async function getMeeting() {
   };
 }
 
-export async function getActivities() {
+export async function getActivities(userRole: string) {
   const activities = await listActivities();
-  return activities.map((row) => ({
-    id: row.id,
-    title: row.title,
-    description: row.description,
-    deadline: row.deadline ? toDateOnly(row.deadline) : null,
-    points: row.points,
-    classroomId: row.classroom_id,
-    createdByEmail: row.created_by_email,
-    createdAt: row.created_at,
-  }));
+  const accessibleClassroomIds = new Set(getAccessibleClassroomIds(userRole));
+
+  return activities
+    .filter((row) => accessibleClassroomIds.has(row.classroom_id))
+    .map((row) => ({
+      id: row.id,
+      title: row.title,
+      description: row.description,
+      deadline: row.deadline ? toDateOnly(row.deadline) : null,
+      points: row.points,
+      classroomId: row.classroom_id,
+      createdByEmail: row.created_by_email,
+      createdAt: row.created_at,
+    }));
 }
 
 export async function createActivity(input: CreateActivityInput, creatorEmail: string) {
@@ -227,4 +254,99 @@ export async function createActivity(input: CreateActivityInput, creatorEmail: s
     createdByEmail: activity.created_by_email,
     createdAt: activity.created_at,
   };
+}
+
+export async function editActivity(
+  activityId: number,
+  input: UpdateActivityInput,
+  creatorEmail: string,
+  userRole: string,
+) {
+  if (userRole !== "president") {
+    throw new AppError("Only the president can edit assigned activities.", 403);
+  }
+
+  const activity = await findActivityById(activityId);
+  if (!activity) {
+    throw new AppError("Activity not found.", 404);
+  }
+
+  if (activity.created_by_email !== creatorEmail) {
+    throw new AppError("You can only edit activities that you assigned.", 403);
+  }
+
+  if (!input.title.trim()) {
+    throw new AppError("Activity title is required.", 400);
+  }
+
+  const updated = await updateClassroomActivity({
+    id: activityId,
+    title: input.title.trim(),
+    description: input.description?.trim() || "",
+    deadline: input.deadline,
+    points: input.points || activity.points,
+  });
+
+  if (!updated) {
+    throw new AppError("Failed to update activity.", 500);
+  }
+
+  return {
+    id: updated.id,
+    title: updated.title,
+    description: updated.description,
+    deadline: updated.deadline ? toDateOnly(updated.deadline) : null,
+    points: updated.points,
+    classroomId: updated.classroom_id,
+    createdByEmail: updated.created_by_email,
+    createdAt: updated.created_at,
+  };
+}
+
+export async function editProject(
+  projectId: number,
+  input: UpdateProjectInput,
+  userEmail: string,
+  userRole: string,
+) {
+  const project = await findProjectById(projectId);
+  if (!project) {
+    throw new AppError("Project not found.", 404);
+  }
+
+  if (project.submitted_by_email !== userEmail) {
+    throw new AppError("You can only edit your own submitted project.", 403);
+  }
+
+  const accessibleRoles = new Set(getAccessibleProjectRoles(userRole));
+  if (!accessibleRoles.has(project.role)) {
+    throw new AppError("You do not have access to edit this project.", 403);
+  }
+
+  if (!input.title.trim()) {
+    throw new AppError("Project title is required.", 400);
+  }
+
+  if (!input.description.trim()) {
+    throw new AppError("Project description is required.", 400);
+  }
+
+  if (!input.fileName.trim() || !input.fileUrl.trim()) {
+    throw new AppError("Project file is required.", 400);
+  }
+
+  const updated = await updateProject({
+    id: projectId,
+    title: input.title.trim(),
+    description: input.description.trim(),
+    fileName: input.fileName.trim(),
+    fileUrl: input.fileUrl.trim(),
+    type: inferProjectType(input.fileName),
+  });
+
+  if (!updated) {
+    throw new AppError("Failed to update project.", 500);
+  }
+
+  return mapProject(updated);
 }

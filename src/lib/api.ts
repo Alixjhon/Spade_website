@@ -157,6 +157,20 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
+  updateActivity: (
+    id: number,
+    payload: {
+      title: string;
+      description: string;
+      deadline: string | null;
+      points: number;
+    },
+  ) =>
+    request<{ activity: ClassroomActivityItem }>(`/api/activities/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+
   submitProject: (payload: {
     activityId: number;
     title: string;
@@ -167,6 +181,20 @@ export const api = {
   }) =>
     request<{ project: ProjectItem }>("/api/projects", {
       method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  updateProject: (
+    id: number,
+    payload: {
+      title: string;
+      description: string;
+      fileUrl: string;
+      fileName: string;
+    },
+  ) =>
+    request<{ project: ProjectItem }>(`/api/projects/${id}`, {
+      method: "PATCH",
       body: JSON.stringify(payload),
     }),
 

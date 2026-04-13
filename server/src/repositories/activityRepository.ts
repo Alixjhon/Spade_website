@@ -193,3 +193,33 @@ export async function createClassroomActivity(data: {
   );
   return result.rows[0] as ClassroomActivityRecord;
 }
+
+export async function updateClassroomActivity(data: {
+  id: number;
+  title: string;
+  description: string;
+  deadline: string | null;
+  points: number;
+}): Promise<ClassroomActivityRecord | null> {
+  const result = await pool.query(
+    `UPDATE classroom_activities
+     SET
+       title = $2,
+       description = $3,
+       deadline = $4,
+       points = $5
+     WHERE id = $1
+     RETURNING
+       id,
+       title,
+       description,
+       deadline,
+       points,
+       classroom_id,
+       created_by_email,
+       created_at`,
+    [data.id, data.title, data.description, data.deadline, data.points],
+  );
+
+  return (result.rows[0] as ClassroomActivityRecord | undefined) ?? null;
+}

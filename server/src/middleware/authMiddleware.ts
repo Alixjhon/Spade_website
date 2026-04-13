@@ -1,10 +1,12 @@
 import { Request, Response, NextFunction } from "express";
-import { env } from "../config/env.js";
 import { AppError } from "../lib/appError.js";
+import { verifyAuthToken } from "../lib/authToken.js";
 
-type AuthenticatedRequest = Request & {
+export type AuthenticatedRequest = Request & {
   user?: {
     email: string;
+    role: string;
+    name: string;
   };
 };
 
@@ -15,27 +17,46 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
   }
 
   const token = authHeader.substring(7);
-  if (token !== env.defaultPassword) {
+  const payload = verifyAuthToken(token);
+  if (!payload) {
     throw new AppError("Invalid authentication token.", 401);
   }
 
-  // Attach user info to request
-  (req as AuthenticatedRequest).user = { email: "admin@spade.com" };
+  (req as AuthenticatedRequest).user = {
+    email: payload.email,
+    role: payload.role,
+    name: payload.name,
+  };
   next();
 }
 
 export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  requireAuth(req, res, () => {
+    const user = (req as AuthenticatedRequest).user;
+    if (!user || user.role !== "president") {
+      throw new AppError("President access required.", 403);
+    }
+
+    next();
+  });
+}
+
+export function requirePresident(req: Request, res: Response, next: NextFunction): void {
+  requireAuth(req, res, () => {
+    const user = (req as AuthenticatedRequest).user;
+    if (!user || user.role !== "president") {
+      throw new AppError("Only the president can assign project activities.", 403);
+    }
+
+    next();
+  });
+}
+
+export function getAuthenticatedUser(req: Request) {
+  const user = (req as AuthenticatedRequest).user;
+  if (!user) {
     throw new AppError("Authentication required.", 401);
   }
 
-  const token = authHeader.substring(7);
-  if (token !== env.defaultPassword) {
-    throw new AppError("Invalid authentication token.", 401);
-  }
-
-  // In a real app, we would check user role from database
-  // For now, we'll assume the default password is for admin
-  next();
+  return user;
 }

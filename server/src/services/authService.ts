@@ -1,6 +1,7 @@
 import { pool } from "../db/pool.js";
 import { env } from "../config/env.js";
 import { AppError } from "../lib/appError.js";
+import { createAuthToken } from "../lib/authToken.js";
 import { mapApplicant } from "../mappers/applicantMapper.js";
 import { createActivity } from "../repositories/activityRepository.js";
 import { createApplicantProject } from "../repositories/applicantProjectRepository.js";
@@ -37,7 +38,11 @@ export async function login(email: string, password: string) {
       contactNumber: user.contactNumber,
       profilePictureUrl: user.profilePictureUrl,
     },
-    token: env.defaultPassword,
+    token: createAuthToken({
+      email: user.email,
+      role: user.role,
+      name: user.name,
+    }),
   };
 }
 

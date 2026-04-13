@@ -1,15 +1,9 @@
 import { Router } from "express";
 import { asyncHandler } from "../lib/asyncHandler.js";
-import { requireAuth } from "../middleware/authMiddleware.js";
-import { createEventEntry, getEvents, getMeeting, getProjects, getActivities, createActivity, submitProject } from "../services/contentService.js";
+import { getAuthenticatedUser, requireAuth, requirePresident } from "../middleware/authMiddleware.js";
+import { createEventEntry, getEvents, getMeeting, getProjects, getActivities, createActivity, submitProject, editActivity, editProject } from "../services/contentService.js";
 
 export const contentRouter = Router();
-
-type AuthenticatedRequest = {
-  user?: {
-    email: string;
-  };
-};
 
 contentRouter.get(
   "/events",
@@ -23,15 +17,18 @@ contentRouter.post(
   "/events",
   requireAuth,
   asyncHandler(async (req, res) => {
-    const event = await createEventEntry(req.body, (req as AuthenticatedRequest).user?.email || "");
+    const user = getAuthenticatedUser(req);
+    const event = await createEventEntry(req.body, user.email);
     res.status(201).json({ event });
   }),
 );
 
 contentRouter.get(
   "/projects",
-  asyncHandler(async (_req, res) => {
-    const projects = await getProjects();
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    const projects = await getProjects(user.role);
     res.json({ projects });
   }),
 );
@@ -40,8 +37,22 @@ contentRouter.post(
   "/projects",
   requireAuth,
   asyncHandler(async (req, res) => {
-    const project = await submitProject(req.body);
+    const user = getAuthenticatedUser(req);
+    const project = await submitProject({
+      ...req.body,
+      submittedByEmail: user.email,
+    }, user.role);
     res.status(201).json({ project });
+  }),
+);
+
+contentRouter.patch(
+  "/projects/:id",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    const project = await editProject(Number(req.params.id), req.body, user.email, user.role);
+    res.json({ project });
   }),
 );
 
@@ -55,17 +66,30 @@ contentRouter.get(
 
 contentRouter.get(
   "/activities",
-  asyncHandler(async (_req, res) => {
-    const activities = await getActivities();
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    const activities = await getActivities(user.role);
     res.json({ activities });
   }),
 );
 
 contentRouter.post(
   "/activities",
-  requireAuth,
+  requirePresident,
   asyncHandler(async (req, res) => {
-    const activity = await createActivity(req.body, (req as AuthenticatedRequest).user?.email || "");
+    const user = getAuthenticatedUser(req);
+    const activity = await createActivity(req.body, user.email);
     res.status(201).json({ activity });
+  }),
+);
+
+contentRouter.patch(
+  "/activities/:id",
+  requirePresident,
+  asyncHandler(async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    const activity = await editActivity(Number(req.params.id), req.body, user.email, user.role);
+    res.json({ activity });
   }),
 );
