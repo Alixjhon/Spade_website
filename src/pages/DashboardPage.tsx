@@ -13,6 +13,7 @@ import {
   Video,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ROLES } from "@/lib/roles";
 import { api } from "@/lib/api";
@@ -270,9 +271,12 @@ const DashboardPage = () => {
             ) : (
               activities.map((activity) => (
                 <div key={activity.id} className="flex items-start gap-4 rounded-2xl border border-border/40 p-4 transition hover:bg-muted/30">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full gradient-primary">
-                    <span className="text-xs font-bold text-primary-foreground">{getInitials(activity.user)}</span>
-                  </div>
+                  <Avatar className="h-10 w-10 shrink-0 ring-1 ring-border/50">
+                    <AvatarImage src={activity.profilePictureUrl} alt={activity.user} className="object-cover" />
+                    <AvatarFallback className="gradient-primary text-xs font-bold text-primary-foreground">
+                      {getInitials(activity.user)}
+                    </AvatarFallback>
+                  </Avatar>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="text-sm text-foreground">

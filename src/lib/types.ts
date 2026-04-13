@@ -23,6 +23,7 @@ export interface RecentActivityItem {
   action: string;
   type: string;
   time: string;
+  profilePictureUrl: string;
 }
 
 export interface ClassroomActivityItem {

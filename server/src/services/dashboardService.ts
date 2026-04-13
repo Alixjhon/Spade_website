@@ -40,6 +40,7 @@ export async function getDashboard(email: string) {
       action: activity.action,
       type: activity.type,
       time: toRelativeTime(activity.created_at),
+      profilePictureUrl: activity.profile_picture_url || "",
     })),
   };
 }

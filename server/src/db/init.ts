@@ -73,15 +73,6 @@ export async function initializeDatabase(): Promise<void> {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
-    CREATE TABLE IF NOT EXISTS meetings (
-      id SERIAL PRIMARY KEY,
-      title TEXT NOT NULL,
-      status TEXT NOT NULL,
-      participants JSONB NOT NULL DEFAULT '[]'::jsonb,
-      scheduled_at TIMESTAMPTZ NOT NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-
     CREATE TABLE IF NOT EXISTS meeting_rooms (
       id SERIAL PRIMARY KEY,
       room_code TEXT NOT NULL UNIQUE,

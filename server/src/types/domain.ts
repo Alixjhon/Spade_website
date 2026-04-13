@@ -115,3 +115,12 @@ export interface CreateProjectInput {
   fileName: string;
   submittedByEmail: string;
 }
+
+export interface DashboardActivityRecord {
+  id: string;
+  user_name: string;
+  action: string;
+  type: string;
+  created_at: string;
+  profile_picture_url: string | null;
+}
