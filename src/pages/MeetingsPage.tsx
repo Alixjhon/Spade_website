@@ -1,12 +1,26 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Mic, MicOff, Monitor, MessageSquare, PhoneOff, Plus, Users, Video, VideoOff } from "lucide-react";
+import {
+  Mic,
+  MicOff,
+  Monitor,
+  MessageSquare,
+  PhoneOff,
+  Plus,
+  Users,
+  Video,
+  VideoOff,
+} from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "@/components/AuthProvider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
-import type { MeetingRoomInfo, MeetingRoomPeer, MeetingRoomSignal } from "@/lib/types";
+import type {
+  MeetingRoomInfo,
+  MeetingRoomPeer,
+  MeetingRoomSignal,
+} from "@/lib/types";
 
 const ICE_SERVERS: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
 
@@ -42,35 +56,6 @@ function initials(name: string) {
     .join("")
     .slice(0, 2)
     .toUpperCase();
-}
-
-function formatJoinedTime(timestamp: number | null) {
-  if (!timestamp) {
-    return "Waiting to join";
-  }
-
-  return new Intl.DateTimeFormat(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(timestamp);
-}
-
-function formatMeetingDate(timestamp: number) {
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(timestamp);
-}
-
-function formatMeetingDateTime(timestamp: number) {
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(timestamp);
 }
 
 function VideoTile({
@@ -111,12 +96,16 @@ function VideoTile({
       ) : (
         <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-muted to-muted/20">
           <div className="flex h-16 w-16 items-center justify-center rounded-full gradient-primary">
-            <span className="text-lg font-bold text-primary-foreground">{initials(label)}</span>
+            <span className="text-lg font-bold text-primary-foreground">
+              {initials(label)}
+            </span>
           </div>
         </div>
       )}
 
-      <div className="absolute bottom-2 left-2 rounded bg-black/60 px-2 py-0.5 text-xs text-white">{label}</div>
+      <div className="absolute bottom-2 left-2 rounded bg-black/60 px-2 py-0.5 text-xs text-white">
+        {label}
+      </div>
     </div>
   );
 }
@@ -159,10 +148,15 @@ async function getMediaStreamWithFallback() {
 
   for (const attempt of attempts) {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia(attempt.constraints);
+      const stream = await navigator.mediaDevices.getUserMedia(
+        attempt.constraints,
+      );
       return {
         stream,
-        warning: attempt.label === "camera and microphone" ? null : `Joined with ${attempt.label}.`,
+        warning:
+          attempt.label === "camera and microphone"
+            ? null
+            : `Joined with ${attempt.label}.`,
       };
     } catch (error) {
       lastError = error;
@@ -177,7 +171,8 @@ const MeetingsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const roomCodeFromUrl = (searchParams.get("room") || "").trim().toUpperCase();
 
-  const [meetingTitleInput, setMeetingTitleInput] = useState("SPADE Team Meeting");
+  const [meetingTitleInput, setMeetingTitleInput] =
+    useState("SPADE Team Meeting");
   const [joinCodeInput, setJoinCodeInput] = useState(roomCodeFromUrl);
   const [roomInfo, setRoomInfo] = useState<MeetingRoomInfo | null>(null);
   const [selectedRoomId, setSelectedRoomId] = useState(roomCodeFromUrl);
@@ -190,26 +185,16 @@ const MeetingsPage = () => {
   const [remotePeers, setRemotePeers] = useState<RemotePeerState[]>([]);
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [roomError, setRoomError] = useState<string | null>(null);
-  const [callState, setCallState] = useState<"idle" | "connecting" | "live" | "ended">("idle");
+  const [callState, setCallState] = useState<
+    "idle" | "connecting" | "live" | "ended"
+  >("idle");
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const [isJoiningRoom, setIsJoiningRoom] = useState(false);
   const [selfJoinedAt, setSelfJoinedAt] = useState<number | null>(null);
-  const [selectedHistoryRoomId, setSelectedHistoryRoomId] = useState("");
 
   const { data } = useQuery({
     queryKey: ["meeting"],
     queryFn: api.getMeeting,
-  });
-
-  const { data: roomHistoryData } = useQuery({
-    queryKey: ["meeting-rooms"],
-    queryFn: api.listMeetingRooms,
-  });
-
-  const { data: selectedAttendanceData, isLoading: isAttendanceLoading } = useQuery({
-    queryKey: ["meeting-room-attendance", selectedHistoryRoomId],
-    queryFn: () => api.getMeetingRoomAttendance(selectedHistoryRoomId),
-    enabled: Boolean(selectedHistoryRoomId),
   });
 
   const fallbackTitle = data?.meeting?.title ?? "SPADE Team Meeting";
@@ -234,44 +219,6 @@ const MeetingsPage = () => {
     ],
     [micOn, remotePeers, user?.name],
   );
-
-  const attendanceEntries = useMemo(
-    () => [
-      {
-        peerId: "self",
-        name: user?.name ?? "You",
-        joinedAt: selfJoinedAt,
-        status: callState === "live" ? "Present" : callState === "connecting" ? "Joining" : "Waiting",
-        isHost: (roomInfo?.hostName ?? user?.name) === (user?.name ?? "You"),
-        micEnabled: micOn,
-        videoEnabled: videoOn,
-      },
-      ...remotePeers.map((peer) => ({
-        peerId: peer.peerId,
-        name: peer.name,
-        joinedAt: peer.joinedAt,
-        status: peer.connectionState === "connected" ? "Present" : "Connecting",
-        isHost: peer.name === roomInfo?.hostName,
-        micEnabled: peer.connectionState === "connected",
-        videoEnabled: Boolean(peer.stream?.getVideoTracks().length),
-      })),
-    ],
-    [callState, micOn, remotePeers, roomInfo?.hostName, selfJoinedAt, user?.name, videoOn],
-  );
-
-  const presentCount = attendanceEntries.filter((entry) => entry.status === "Present").length;
-  const meetingRooms = roomHistoryData?.rooms ?? [];
-
-  useEffect(() => {
-    if (!meetingRooms.length) {
-      setSelectedHistoryRoomId("");
-      return;
-    }
-
-    setSelectedHistoryRoomId((current) =>
-      current && meetingRooms.some((room) => room.roomId === current) ? current : meetingRooms[0].roomId,
-    );
-  }, [meetingRooms]);
 
   useEffect(() => {
     return () => {
@@ -320,7 +267,10 @@ const MeetingsPage = () => {
     }
   }
 
-  function updateRemotePeer(peerId: string, next: Partial<RemotePeerState> & Pick<RemotePeerState, "peerId">) {
+  function updateRemotePeer(
+    peerId: string,
+    next: Partial<RemotePeerState> & Pick<RemotePeerState, "peerId">,
+  ) {
     setRemotePeers((current) => {
       const existing = current.find((peer) => peer.peerId === peerId);
       if (!existing) {
@@ -348,10 +298,16 @@ const MeetingsPage = () => {
       entry.connection.close();
       peersRef.current.delete(peerId);
     }
-    setRemotePeers((current) => current.filter((peer) => peer.peerId !== peerId));
+    setRemotePeers((current) =>
+      current.filter((peer) => peer.peerId !== peerId),
+    );
   }
 
-  async function sendSignal(toPeerId: string, type: MeetingRoomSignal["type"], payload: unknown) {
+  async function sendSignal(
+    toPeerId: string,
+    type: MeetingRoomSignal["type"],
+    payload: unknown,
+  ) {
     if (!peerIdRef.current || !activeRoomRef.current) {
       return;
     }
@@ -364,7 +320,10 @@ const MeetingsPage = () => {
     });
   }
 
-  async function ensurePeerConnection(peer: MeetingRoomPeer, shouldInitiate: boolean) {
+  async function ensurePeerConnection(
+    peer: MeetingRoomPeer,
+    shouldInitiate: boolean,
+  ) {
     const existing = peersRef.current.get(peer.peerId);
     if (existing) {
       updateRemotePeer(peer.peerId, {
@@ -406,7 +365,11 @@ const MeetingsPage = () => {
         connectionState: connection.connectionState,
       });
 
-      if (["failed", "closed", "disconnected"].includes(connection.connectionState)) {
+      if (
+        ["failed", "closed", "disconnected"].includes(
+          connection.connectionState,
+        )
+      ) {
         removeRemotePeer(peer.peerId);
       }
     };
@@ -463,7 +426,9 @@ const MeetingsPage = () => {
   }
 
   async function handleSignal(signal: MeetingRoomSignal) {
-    const existingPeer = remotePeers.find((peer) => peer.peerId === signal.fromPeerId);
+    const existingPeer = remotePeers.find(
+      (peer) => peer.peerId === signal.fromPeerId,
+    );
     const entry = await ensurePeerConnection(
       {
         peerId: signal.fromPeerId,
@@ -474,7 +439,9 @@ const MeetingsPage = () => {
     );
 
     if (signal.type === "offer") {
-      await entry.connection.setRemoteDescription(signal.payload as RTCSessionDescriptionInit);
+      await entry.connection.setRemoteDescription(
+        signal.payload as RTCSessionDescriptionInit,
+      );
       await flushPendingIceCandidates(entry);
       const answer = await entry.connection.createAnswer();
       await entry.connection.setLocalDescription(answer);
@@ -483,7 +450,9 @@ const MeetingsPage = () => {
     }
 
     if (signal.type === "answer") {
-      await entry.connection.setRemoteDescription(signal.payload as RTCSessionDescriptionInit);
+      await entry.connection.setRemoteDescription(
+        signal.payload as RTCSessionDescriptionInit,
+      );
       await flushPendingIceCandidates(entry);
       return;
     }
@@ -520,7 +489,9 @@ const MeetingsPage = () => {
     setSelfJoinedAt(null);
 
     if (currentRoomId && currentPeerId) {
-      await api.leaveMeetingRoom(currentRoomId, currentPeerId).catch(() => undefined);
+      await api
+        .leaveMeetingRoom(currentRoomId, currentPeerId)
+        .catch(() => undefined);
     }
 
     activeRoomRef.current = "";
@@ -556,7 +527,9 @@ const MeetingsPage = () => {
       setCallState("idle");
       syncRoomToUrl(response.room.roomId);
     } catch (error) {
-      setRoomError(error instanceof Error ? error.message : "Failed to create meeting.");
+      setRoomError(
+        error instanceof Error ? error.message : "Failed to create meeting.",
+      );
     } finally {
       setIsCreatingRoom(false);
     }
@@ -578,7 +551,9 @@ const MeetingsPage = () => {
       setRoomInfo(response.room);
       syncRoomToUrl(response.room.roomId);
     } catch (error) {
-      setRoomError(error instanceof Error ? error.message : "Meeting room not found.");
+      setRoomError(
+        error instanceof Error ? error.message : "Meeting room not found.",
+      );
     } finally {
       setIsJoiningRoom(false);
     }
@@ -606,7 +581,9 @@ const MeetingsPage = () => {
 
     async function startLocalMedia() {
       if (!navigator.mediaDevices?.getUserMedia) {
-        setMediaError("This browser does not support camera and microphone access.");
+        setMediaError(
+          "This browser does not support camera and microphone access.",
+        );
         return;
       }
 
@@ -663,7 +640,12 @@ const MeetingsPage = () => {
   }, [localStream, videoOn]);
 
   useEffect(() => {
-    if (!user || !selectedRoomId || activeRoomRef.current || (!localStream && !mediaError)) {
+    if (
+      !user ||
+      !selectedRoomId ||
+      activeRoomRef.current ||
+      (!localStream && !mediaError)
+    ) {
       return;
     }
 
@@ -683,7 +665,10 @@ const MeetingsPage = () => {
       }
 
       try {
-        const roomState = await api.pollMeetingRoom(activeRoomRef.current, peerIdRef.current);
+        const roomState = await api.pollMeetingRoom(
+          activeRoomRef.current,
+          peerIdRef.current,
+        );
         if (roomState.roomMissing) {
           setRoomError("This meeting was closed.");
           await leaveCurrentCall(true);
@@ -693,7 +678,9 @@ const MeetingsPage = () => {
           return;
         }
 
-        const activePeerIds = new Set(roomState.peers.map((peer) => peer.peerId));
+        const activePeerIds = new Set(
+          roomState.peers.map((peer) => peer.peerId),
+        );
 
         for (const peer of roomState.peers) {
           await ensurePeerConnection(peer, joinedAtRef.current > peer.joinedAt);
@@ -729,7 +716,9 @@ const MeetingsPage = () => {
         });
 
         if (stopped) {
-          await api.leaveMeetingRoom(room.room.roomId, selfPeerId).catch(() => undefined);
+          await api
+            .leaveMeetingRoom(room.room.roomId, selfPeerId)
+            .catch(() => undefined);
           return;
         }
 
@@ -749,11 +738,16 @@ const MeetingsPage = () => {
 
         heartbeatTimer = window.setInterval(() => {
           if (activeRoomRef.current && peerIdRef.current) {
-            void api.heartbeatMeetingRoom(activeRoomRef.current, peerIdRef.current);
+            void api.heartbeatMeetingRoom(
+              activeRoomRef.current,
+              peerIdRef.current,
+            );
           }
         }, 10000);
       } catch (error) {
-        setRoomError(error instanceof Error ? error.message : "Failed to join meeting.");
+        setRoomError(
+          error instanceof Error ? error.message : "Failed to join meeting.",
+        );
         setCallState("ended");
         activeRoomRef.current = "";
         peerIdRef.current = "";
@@ -779,19 +773,37 @@ const MeetingsPage = () => {
       <div className="space-y-6 animate-fade-in">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Meetings</h1>
-          <p className="mt-1 text-muted-foreground">Create a meeting room or join one with a code.</p>
-          {mediaError ? <p className="mt-2 text-sm text-destructive">{mediaError}</p> : null}
-          {roomError ? <p className="mt-2 text-sm text-destructive">{roomError}</p> : null}
+          <p className="mt-1 text-muted-foreground">
+            Create a meeting room or join one with a code.
+          </p>
+          {mediaError ? (
+            <p className="mt-2 text-sm text-destructive">{mediaError}</p>
+          ) : null}
+          {roomError ? (
+            <p className="mt-2 text-sm text-destructive">{roomError}</p>
+          ) : null}
         </div>
 
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="glass-card-elevated rounded-2xl p-6 space-y-4">
             <div>
-              <h2 className="text-lg font-semibold text-foreground">Create Meeting</h2>
-              <p className="mt-1 text-sm text-muted-foreground">Start a new room and share the code with other users.</p>
+              <h2 className="text-lg font-semibold text-foreground">
+                Create Meeting
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Start a new room and share the code with other users.
+              </p>
             </div>
-            <Input value={meetingTitleInput} onChange={(event) => setMeetingTitleInput(event.target.value)} placeholder={fallbackTitle} />
-            <Button onClick={() => void createRoom()} disabled={isCreatingRoom || !user} className="w-full">
+            <Input
+              value={meetingTitleInput}
+              onChange={(event) => setMeetingTitleInput(event.target.value)}
+              placeholder={fallbackTitle}
+            />
+            <Button
+              onClick={() => void createRoom()}
+              disabled={isCreatingRoom || !user}
+              className="w-full"
+            >
               <Plus className="mr-2 h-4 w-4" />
               {isCreatingRoom ? "Creating..." : "Create Meeting"}
             </Button>
@@ -799,116 +811,27 @@ const MeetingsPage = () => {
 
           <div className="glass-card-elevated rounded-2xl p-6 space-y-4">
             <div>
-              <h2 className="text-lg font-semibold text-foreground">Join Meeting</h2>
-              <p className="mt-1 text-sm text-muted-foreground">Enter the meeting code shared by the host.</p>
-            </div>
-            <Input value={joinCodeInput} onChange={(event) => setJoinCodeInput(event.target.value.toUpperCase())} placeholder="Enter room code" />
-            <Button onClick={() => void joinRoomByCode()} disabled={isJoiningRoom || !user} className="w-full">
-              {isJoiningRoom ? "Joining..." : "Join Meeting"}
-            </Button>
-          </div>
-        </div>
-
-        <div className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
-          <div className="glass-card-elevated rounded-2xl p-6">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Saved meetings</p>
-                <h2 className="mt-2 text-lg font-semibold text-foreground">Meeting records</h2>
-                <p className="mt-1 text-sm text-muted-foreground">Browse previous or active rooms by title and meeting date.</p>
-              </div>
-              <div className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">{meetingRooms.length} rooms</div>
-            </div>
-
-            <div className="mt-5 space-y-3">
-              {meetingRooms.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-border/60 bg-background/60 p-5 text-sm text-muted-foreground">
-                  No saved meeting rooms yet. Create one and it will appear here.
-                </div>
-              ) : (
-                meetingRooms.map((room) => (
-                  <button
-                    key={room.roomId}
-                    type="button"
-                    onClick={() => setSelectedHistoryRoomId(room.roomId)}
-                    className={`w-full rounded-2xl border px-4 py-4 text-left transition ${
-                      selectedHistoryRoomId === room.roomId
-                        ? "border-primary/40 bg-primary/5 shadow-sm"
-                        : "border-border/50 bg-background/70 hover:border-primary/25 hover:bg-muted/30"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-medium text-foreground">{room.title}</p>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          {formatMeetingDate(room.createdAt)} | Host: {room.hostName}
-                        </p>
-                      </div>
-                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
-                        {room.participantCount} attendees
-                      </span>
-                    </div>
-                    <p className="mt-3 text-xs uppercase tracking-[0.18em] text-muted-foreground">Room code {room.roomId}</p>
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
-
-          <div className="glass-card-elevated rounded-2xl p-6">
-            <div>
-              <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Participants</p>
-              <h2 className="mt-2 text-lg font-semibold text-foreground">{selectedAttendanceData?.room.title ?? "Meeting attendees"}</h2>
+              <h2 className="text-lg font-semibold text-foreground">
+                Join Meeting
+              </h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                {selectedAttendanceData?.room
-                  ? `Meeting date: ${formatMeetingDateTime(selectedAttendanceData.room.createdAt)}`
-                  : "Select a meeting room to fetch all attendees."}
+                Enter the meeting code shared by the host.
               </p>
             </div>
-
-            <div className="mt-5">
-              {isAttendanceLoading ? (
-                <div className="space-y-3">
-                  {Array.from({ length: 3 }).map((_, index) => (
-                    <div key={index} className="rounded-2xl border border-border/50 bg-background/70 p-4">
-                      <div className="h-4 w-40 animate-pulse rounded bg-slate-200/70" />
-                      <div className="mt-3 h-3 w-56 animate-pulse rounded bg-slate-200/70" />
-                    </div>
-                  ))}
-                </div>
-              ) : !selectedAttendanceData ? (
-                <div className="rounded-2xl border border-dashed border-border/60 bg-background/60 p-5 text-sm text-muted-foreground">
-                  Select a room from the list to view its participants.
-                </div>
-              ) : selectedAttendanceData.attendees.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-border/60 bg-background/60 p-5 text-sm text-muted-foreground">
-                  No attendees have been recorded for this meeting yet.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {selectedAttendanceData.attendees.map((attendee) => (
-                    <div key={attendee.id} className="rounded-2xl border border-border/50 bg-background/80 px-4 py-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full gradient-primary">
-                            <span className="text-xs font-bold text-primary-foreground">{initials(attendee.name)}</span>
-                          </div>
-                          <div>
-                            <p className="font-medium text-foreground">{attendee.name}</p>
-                            <p className="text-sm text-muted-foreground">{attendee.email}</p>
-                          </div>
-                        </div>
-                        <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700">Recorded</span>
-                      </div>
-                      <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                        <span className="rounded-full bg-slate-100 px-3 py-1">First joined {formatMeetingDateTime(attendee.firstJoinedAt)}</span>
-                        <span className="rounded-full bg-slate-100 px-3 py-1">Last joined {formatMeetingDateTime(attendee.lastJoinedAt)}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <Input
+              value={joinCodeInput}
+              onChange={(event) =>
+                setJoinCodeInput(event.target.value.toUpperCase())
+              }
+              placeholder="Enter room code"
+            />
+            <Button
+              onClick={() => void joinRoomByCode()}
+              disabled={isJoiningRoom || !user}
+              className="w-full"
+            >
+              {isJoiningRoom ? "Joining..." : "Join Meeting"}
+            </Button>
           </div>
         </div>
       </div>
@@ -920,15 +843,30 @@ const MeetingsPage = () => {
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Meetings</h1>
-          <p className="mt-1 text-muted-foreground">{roomInfo?.title ?? fallbackTitle}</p>
+          <p className="mt-1 text-muted-foreground">
+            {roomInfo?.title ?? fallbackTitle}
+          </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            Code: <span className="font-medium text-foreground">{selectedRoomId}</span> | Host: {roomInfo?.hostName ?? user?.name ?? "Unknown"}
+            Code:{" "}
+            <span className="font-medium text-foreground">
+              {selectedRoomId}
+            </span>{" "}
+            | Host: {roomInfo?.hostName ?? user?.name ?? "Unknown"}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Status: {callState === "live" ? "connected" : callState === "connecting" ? "connecting" : "ended"}
+            Status:{" "}
+            {callState === "live"
+              ? "connected"
+              : callState === "connecting"
+                ? "connecting"
+                : "ended"}
           </p>
-          {mediaError ? <p className="mt-2 text-sm text-destructive">{mediaError}</p> : null}
-          {roomError ? <p className="mt-2 text-sm text-destructive">{roomError}</p> : null}
+          {mediaError ? (
+            <p className="mt-2 text-sm text-destructive">{mediaError}</p>
+          ) : null}
+          {roomError ? (
+            <p className="mt-2 text-sm text-destructive">{roomError}</p>
+          ) : null}
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => void copyInvite()}>
@@ -950,15 +888,39 @@ const MeetingsPage = () => {
           <div className="glass-card-elevated rounded-2xl p-4">
             {screenStream ? (
               <div className="mb-4 rounded-2xl border border-primary/20 bg-primary/5 p-2">
-                <VideoTile label={`${user?.name ?? "You"} is presenting`} stream={screenStream} muted highlighted presentation />
+                <VideoTile
+                  label={`${user?.name ?? "You"} is presenting`}
+                  stream={screenStream}
+                  muted
+                  highlighted
+                  presentation
+                />
               </div>
             ) : null}
 
-            <div className={screenStream ? "grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-4" : "grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3"}>
-              <VideoTile label={`${user?.name ?? "You"} (You)`} stream={localStream} muted highlighted={!screenStream && micOn} />
+            <div
+              className={
+                screenStream
+                  ? "grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-4"
+                  : "grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3"
+              }
+            >
+              <VideoTile
+                label={`${user?.name ?? "You"} (You)`}
+                stream={localStream}
+                muted
+                highlighted={!screenStream && micOn}
+              />
 
               {remotePeers.map((peer) => (
-                <VideoTile key={peer.peerId} label={peer.name} stream={peer.stream} highlighted={!screenStream && peer.connectionState === "connected"} />
+                <VideoTile
+                  key={peer.peerId}
+                  label={peer.name}
+                  stream={peer.stream}
+                  highlighted={
+                    !screenStream && peer.connectionState === "connected"
+                  }
+                />
               ))}
             </div>
           </div>
@@ -970,7 +932,11 @@ const MeetingsPage = () => {
               className={`h-12 w-12 rounded-full ${!micOn ? "border-destructive bg-destructive/10 text-destructive" : ""}`}
               onClick={() => setMicOn((value) => !value)}
             >
-              {micOn ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
+              {micOn ? (
+                <Mic className="h-5 w-5" />
+              ) : (
+                <MicOff className="h-5 w-5" />
+              )}
             </Button>
 
             <Button
@@ -979,25 +945,40 @@ const MeetingsPage = () => {
               className={`h-12 w-12 rounded-full ${!videoOn ? "border-destructive bg-destructive/10 text-destructive" : ""}`}
               onClick={() => setVideoOn((value) => !value)}
             >
-              {videoOn ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
+              {videoOn ? (
+                <Video className="h-5 w-5" />
+              ) : (
+                <VideoOff className="h-5 w-5" />
+              )}
             </Button>
 
             <Button
               variant="outline"
               size="icon"
               className={`h-12 w-12 rounded-full ${
-                isScreenSharing ? "border-primary bg-primary/10 text-primary ring-2 ring-primary" : ""
+                isScreenSharing
+                  ? "border-primary bg-primary/10 text-primary ring-2 ring-primary"
+                  : ""
               }`}
               onClick={() => void toggleScreenShare()}
             >
               <Monitor className="h-5 w-5" />
             </Button>
 
-            <Button variant="outline" size="icon" className="h-12 w-12 rounded-full" onClick={() => setShowParticipants((value) => !value)}>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-12 w-12 rounded-full"
+              onClick={() => setShowParticipants((value) => !value)}
+            >
               <Users className="h-5 w-5" />
             </Button>
 
-            <Button variant="outline" size="icon" className="h-12 w-12 rounded-full">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-12 w-12 rounded-full"
+            >
               <MessageSquare className="h-5 w-5" />
             </Button>
 
@@ -1011,21 +992,30 @@ const MeetingsPage = () => {
               <PhoneOff className="h-5 w-5" />
             </Button>
           </div>
-
-          {/* Keep your existing attendance overview block here unchanged */}
         </div>
 
         {showParticipants && (
           <div className="glass-card w-full animate-scale-in p-4 lg:w-72">
-            <h3 className="mb-3 font-semibold text-foreground">Participants ({participants.length})</h3>
+            <h3 className="mb-3 font-semibold text-foreground">
+              Participants ({participants.length})
+            </h3>
             <div className="space-y-2">
               {participants.map((participant) => (
-                <div key={participant.peerId} className="flex items-center gap-3 rounded-xl p-2 hover:bg-muted/50">
+                <div
+                  key={participant.peerId}
+                  className="flex items-center gap-3 rounded-xl p-2 hover:bg-muted/50"
+                >
                   <div className="flex h-8 w-8 items-center justify-center rounded-full gradient-primary">
-                    <span className="text-xs font-bold text-primary-foreground">{initials(participant.name)}</span>
+                    <span className="text-xs font-bold text-primary-foreground">
+                      {initials(participant.name)}
+                    </span>
                   </div>
-                  <span className="flex-1 text-sm text-foreground">{participant.name}</span>
-                  {participant.isSpeaking ? <div className="h-2 w-2 rounded-full bg-primary animate-pulse" /> : null}
+                  <span className="flex-1 text-sm text-foreground">
+                    {participant.name}
+                  </span>
+                  {participant.isSpeaking ? (
+                    <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+                  ) : null}
                 </div>
               ))}
             </div>

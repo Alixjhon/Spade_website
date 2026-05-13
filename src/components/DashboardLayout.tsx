@@ -28,6 +28,7 @@ import {
   Camera,
   PencilLine,
   Sparkles,
+  Newspaper
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -60,13 +61,14 @@ const getInitials = (name?: string) =>
 
 const navItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+  { title: "Applicants", url: "/dashboard/applicants", icon: Users },
+  { title: "Members", url: "/dashboard/members", icon: Users },
+  { title: "Records", url: "/dashboard/records", icon: Newspaper },
+  { title: "Projects", url: "/dashboard/projects", icon: FolderOpen },
+  { title: "Events", url: "/dashboard/events", icon: Calendar },
+  { title: "Meetings", url: "/dashboard/meetings", icon: Video },
   { title: "Elections", url: "/dashboard/elections", icon: Trophy },
   { title: "Voting", url: "/dashboard/voting", icon: Vote },
-  { title: "Events", url: "/dashboard/events", icon: Calendar },
-  { title: "Members", url: "/dashboard/members", icon: Users },
-  { title: "Applicants", url: "/dashboard/applicants", icon: Users },
-  { title: "Projects", url: "/dashboard/projects", icon: FolderOpen },
-  { title: "Meetings", url: "/dashboard/meetings", icon: Video },
 ];
 
 function AppSidebar() {
