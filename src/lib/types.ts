@@ -47,10 +47,6 @@ export interface Applicant {
   yearLevel: string;
   contactNumber: string;
   profilePictureUrl: string;
-  projectTitle: string;
-  projectDescription: string;
-  projectAttachmentName: string;
-  projectAttachmentUrl: string;
   status: "pending" | "approved" | "rejected";
   appliedDate: string;
 }
@@ -109,6 +105,14 @@ export interface MeetingRoomInfo {
   hostName: string;
   createdAt: number;
   participantCount: number;
+}
+
+export interface MeetingRoomAttendanceEntry {
+  id: number;
+  email: string;
+  name: string;
+  firstJoinedAt: number;
+  lastJoinedAt: number;
 }
 
 export interface MeetingRoomSignal {

@@ -5,14 +5,12 @@ import {
   enqueueMeetingSignal,
   getMeetingParticipant,
   listMeetingParticipants,
-  pruneStaleMeetingParticipants,
   takeMeetingSignals,
   upsertMeetingParticipant,
 } from "../repositories/meetingSessionRepository.js";
+import { upsertMeetingAttendance } from "../repositories/meetingAttendanceRepository.js";
 
 type SignalType = "offer" | "answer" | "ice-candidate";
-
-const STALE_PARTICIPANT_MS = 60_000;
 
 function sanitizeRoomId(roomId: string) {
   return roomId.trim().toUpperCase();
@@ -48,22 +46,16 @@ function serializeSignal(signal: {
   };
 }
 
-async function pruneStaleParticipants() {
-  await pruneStaleMeetingParticipants(new Date(Date.now() - STALE_PARTICIPANT_MS));
-}
-
 export async function getMeetingRoomParticipantCount(roomId: string) {
   const normalizedRoomId = sanitizeRoomId(roomId);
-  await pruneStaleParticipants();
   return countMeetingParticipants(normalizedRoomId);
 }
 
-export async function joinMeetingRoomSession(input: { roomId: string; peerId: string; name: string }) {
+export async function joinMeetingRoomSession(input: { roomId: string; peerId: string; name: string; email?: string }) {
   const roomCode = sanitizeRoomId(input.roomId);
   const peerId = input.peerId.trim();
   const name = input.name.trim() || "Guest";
-
-  await pruneStaleParticipants();
+  const userEmail = input.email?.trim().toLowerCase() || "";
 
   const now = new Date();
   const existing = await getMeetingParticipant({ roomCode, peerId });
@@ -74,6 +66,15 @@ export async function joinMeetingRoomSession(input: { roomId: string; peerId: st
     joinedAt: existing ? new Date(existing.joined_at) : now,
     lastSeenAt: now,
   });
+
+  if (userEmail) {
+    await upsertMeetingAttendance({
+      roomCode,
+      userEmail,
+      name,
+      joinedAt: now,
+    });
+  }
 
   const peers = (await listMeetingParticipants(roomCode))
     .filter((peer) => peer.peer_id !== peerId)
@@ -88,8 +89,6 @@ export async function joinMeetingRoomSession(input: { roomId: string; peerId: st
 export async function pollMeetingRoomSession(input: { roomId: string; peerId: string }) {
   const roomCode = sanitizeRoomId(input.roomId);
   const peerId = input.peerId.trim();
-
-  await pruneStaleParticipants();
 
   const participant = await getMeetingParticipant({ roomCode, peerId });
   if (!participant) {
@@ -133,8 +132,6 @@ export async function sendMeetingSignal(input: {
   const fromPeerId = input.fromPeerId.trim();
   const toPeerId = input.toPeerId.trim();
 
-  await pruneStaleParticipants();
-
   const [sender, receiver] = await Promise.all([
     getMeetingParticipant({ roomCode, peerId: fromPeerId }),
     getMeetingParticipant({ roomCode, peerId: toPeerId }),
@@ -176,8 +173,6 @@ export async function sendMeetingSignal(input: {
 export async function touchMeetingParticipant(input: { roomId: string; peerId: string }) {
   const roomCode = sanitizeRoomId(input.roomId);
   const peerId = input.peerId.trim();
-
-  await pruneStaleParticipants();
 
   const participant = await getMeetingParticipant({ roomCode, peerId });
   if (!participant) {

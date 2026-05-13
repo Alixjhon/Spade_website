@@ -12,6 +12,7 @@ import VotingPage from "./pages/VotingPage";
 import ElectionPage from "./pages/ElectionPage";
 import EventsPage from "./pages/EventsPage";
 import ApplicantsPage from "./pages/ApplicantsPage";
+import MembersPage from "./pages/MembersPage";
 import ProjectsPage from "./pages/ProjectsPage";
 import MeetingsPage from "./pages/MeetingsPage";
 import NotFound from "./pages/NotFound";
@@ -48,6 +49,7 @@ const App = () => (
               <Route path="voting" element={<VotingPage />} />
               <Route path="elections" element={<ElectionPage />} />
               <Route path="events" element={<EventsPage />} />
+              <Route path="members" element={<MembersPage />} />
               <Route path="applicants" element={<ApplicantsPage />} />
               <Route path="projects" element={<ProjectsPage />} />
               <Route path="meetings" element={<MeetingsPage />} />

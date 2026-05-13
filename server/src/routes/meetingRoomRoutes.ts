@@ -8,7 +8,12 @@ import {
   sendMeetingSignal,
   touchMeetingParticipant,
 } from "../services/meetingRoomService.js";
-import { createPersistentMeetingRoom, getPersistentMeetingRoom } from "../services/meetingRoomPersistenceService.js";
+import {
+  createPersistentMeetingRoom,
+  getPersistentMeetingRoom,
+  getPersistentMeetingRoomAttendance,
+  listPersistentMeetingRooms,
+} from "../services/meetingRoomPersistenceService.js";
 
 export const meetingRoomRouter = Router();
 
@@ -29,6 +34,14 @@ meetingRoomRouter.post(
 );
 
 meetingRoomRouter.get(
+  "/",
+  asyncHandler(async (_req, res) => {
+    const rooms = await listPersistentMeetingRooms();
+    res.json({ rooms });
+  }),
+);
+
+meetingRoomRouter.get(
   "/:roomId",
   asyncHandler(async (req, res) => {
     const roomId = singleValue(req.params.roomId);
@@ -39,6 +52,20 @@ meetingRoomRouter.get(
     }
 
     res.json({ room });
+  }),
+);
+
+meetingRoomRouter.get(
+  "/:roomId/attendance",
+  asyncHandler(async (req, res) => {
+    const roomId = singleValue(req.params.roomId);
+    const attendance = await getPersistentMeetingRoomAttendance(roomId);
+    if (!attendance) {
+      res.status(404).json({ message: "Meeting room not found." });
+      return;
+    }
+
+    res.json(attendance);
   }),
 );
 
@@ -57,6 +84,7 @@ meetingRoomRouter.post(
       roomId,
       peerId: String(req.body.peerId || ""),
       name: String(req.body.name || ""),
+      email: String(req.body.email || ""),
     });
     const updatedRoomInfo = await getPersistentMeetingRoom(roomId, await getMeetingRoomParticipantCount(roomId));
     res.json({ room: updatedRoomInfo ?? roomInfo, ...room });

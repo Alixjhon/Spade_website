@@ -2,8 +2,10 @@ import {
   countMeetingRoomsByCode,
   createMeetingRoomRecord,
   getMeetingRoomRecordByCode,
+  listMeetingRoomRecords,
   type MeetingRoomRecord,
 } from "../repositories/meetingRoomRepository.js";
+import { countMeetingAttendanceByRoom, listMeetingAttendanceByRoom } from "../repositories/meetingAttendanceRepository.js";
 
 function sanitizeRoomId(roomId: string) {
   return roomId.trim().toUpperCase();
@@ -21,6 +23,22 @@ function serializeRoom(record: MeetingRoomRecord, participantCount: number) {
     hostName: record.host_name,
     createdAt: new Date(record.created_at).getTime(),
     participantCount,
+  };
+}
+
+function serializeAttendanceRecord(record: {
+  id: number;
+  user_email: string;
+  name: string;
+  first_joined_at: Date | string;
+  last_joined_at: Date | string;
+}) {
+  return {
+    id: record.id,
+    email: record.user_email,
+    name: record.name,
+    firstJoinedAt: new Date(record.first_joined_at).getTime(),
+    lastJoinedAt: new Date(record.last_joined_at).getTime(),
   };
 }
 
@@ -58,4 +76,30 @@ export async function getPersistentMeetingRoom(roomId: string, participantCount:
   }
 
   return serializeRoom(record, participantCount);
+}
+
+export async function listPersistentMeetingRooms() {
+  const records = await listMeetingRoomRecords();
+
+  return Promise.all(
+    records.map(async (record) => serializeRoom(record, await countMeetingAttendanceByRoom(record.room_code))),
+  );
+}
+
+export async function getPersistentMeetingRoomAttendance(roomId: string) {
+  const normalizedRoomId = sanitizeRoomId(roomId);
+  const record = await getMeetingRoomRecordByCode(normalizedRoomId);
+  if (!record || record.status !== "active") {
+    return null;
+  }
+
+  const [participantCount, attendees] = await Promise.all([
+    countMeetingAttendanceByRoom(normalizedRoomId),
+    listMeetingAttendanceByRoom(normalizedRoomId),
+  ]);
+
+  return {
+    room: serializeRoom(record, participantCount),
+    attendees: attendees.map(serializeAttendanceRecord),
+  };
 }

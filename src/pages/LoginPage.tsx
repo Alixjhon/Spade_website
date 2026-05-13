@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { APPLICANT_ROLES } from "@/lib/roles";
 import { api, setAuthToken } from "@/lib/api";
 import { useAuth } from "@/components/AuthProvider";
@@ -23,16 +22,12 @@ const LoginPage = () => {
   const [course, setCourse] = useState("");
   const [yearLevel, setYearLevel] = useState("");
   const [contactNumber, setContactNumber] = useState("");
-  const [projectTitle, setProjectTitle] = useState("");
-  const [projectDescription, setProjectDescription] = useState("");
   const [profilePictureUrl, setProfilePictureUrl] = useState("");
-  const [projectAttachmentName, setProjectAttachmentName] = useState("");
-  const [projectAttachmentUrl, setProjectAttachmentUrl] = useState("");
   const [isRegister, setIsRegister] = useState(false);
   const navigate = useNavigate();
   const { signIn } = useAuth();
 
-  const title = isRegister ? "Apply to SPADE" : "Welcome Back";
+  const title = isRegister ? "Apply to SPADES" : "Welcome Back";
   const description = isRegister
     ? "Submit your application and choose the role you want to contribute in."
     : "Sign in with your campus email to access elections, events, and projects.";
@@ -61,11 +56,7 @@ const LoginPage = () => {
       setContactNumber("");
       setPassword("");
       setRole("");
-      setProjectTitle("");
-      setProjectDescription("");
       setProfilePictureUrl("");
-      setProjectAttachmentName("");
-      setProjectAttachmentUrl("");
       setIsRegister(false);
     },
     onError: (error: Error) => {
@@ -89,13 +80,6 @@ const LoginPage = () => {
     setProfilePictureUrl(await toDataUrl(file));
   };
 
-  const handleProjectAttachmentChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setProjectAttachmentName(file.name);
-    setProjectAttachmentUrl(await toDataUrl(file));
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.endsWith("@aclcbukidnon.com")) {
@@ -110,7 +94,7 @@ const LoginPage = () => {
       toast.error("Please select a role");
       return;
     }
-    if (isRegister && (!name || !location || !course || !yearLevel || !contactNumber || !projectTitle || !projectDescription)) {
+    if (isRegister && (!name || !location || !course || !yearLevel || !contactNumber)) {
       toast.error("Please complete the onboarding form");
       return;
     }
@@ -126,10 +110,6 @@ const LoginPage = () => {
         yearLevel,
         contactNumber,
         profilePictureUrl,
-        projectTitle,
-        projectDescription,
-        projectAttachmentName,
-        projectAttachmentUrl,
       });
       return;
     }
@@ -161,7 +141,7 @@ const LoginPage = () => {
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.34em] text-white/70">Student Platform</p>
-                <h1 className="text-2xl font-semibold text-white">SPADE Portal</h1>
+                <h1 className="text-2xl font-semibold text-white">SPADES Portal</h1>
               </div>
             </div>
 
@@ -174,7 +154,7 @@ const LoginPage = () => {
                   <h2 className="text-5xl font-semibold leading-[1.02] text-white xl:text-6xl">
                   </h2>
                   <p className="max-w-lg text-base leading-7 text-white/78 xl:text-lg">
-                    Built for SPADE officers and applicants to manage elections, track initiatives, and stay aligned across the organization.
+                    Built for SPADES officers and applicants to manage elections, track initiatives, and stay aligned across the organization.
                   </p>
                 </div>
               </div>
@@ -219,7 +199,7 @@ const LoginPage = () => {
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">Student Platform</p>
-                <span className="block text-2xl font-bold gradient-text">SPADE</span>
+                <span className="block text-2xl font-bold gradient-text">SPADES</span>
               </div>
             </div>
 
@@ -368,41 +348,6 @@ const LoginPage = () => {
                           ))}
                         </SelectContent>
                       </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="project-title">Project Title</Label>
-                      <Input
-                        id="project-title"
-                        placeholder="Name of your best project"
-                        value={projectTitle}
-                        onChange={(e) => setProjectTitle(e.target.value)}
-                        className="h-12 rounded-2xl border-border/60 bg-white/75 px-4 shadow-sm"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="project-description">Project Summary</Label>
-                      <Textarea
-                        id="project-description"
-                        placeholder="What did you build, what stack did you use, and what was your contribution?"
-                        value={projectDescription}
-                        onChange={(e) => setProjectDescription(e.target.value)}
-                        className="min-h-[120px] rounded-2xl border-border/60 bg-white/75 px-4 py-3 shadow-sm"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="project-attachment">Project Attachment</Label>
-                      <Input
-                        id="project-attachment"
-                        type="file"
-                        onChange={handleProjectAttachmentChange}
-                        className="rounded-2xl border-border/60 bg-white/75 px-4 py-3 shadow-sm"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        {projectAttachmentName ? `Attached: ${projectAttachmentName}` : "Attach a zip, PDF, image, or any supporting project file."}
-                      </p>
                     </div>
                   </div>
                 )}

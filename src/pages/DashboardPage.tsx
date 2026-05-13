@@ -96,7 +96,7 @@ const DashboardPage = () => {
             <div className="space-y-7">
               <Badge className="w-fit border-0 bg-white/80 px-4 py-1.5 text-slate-900">
                 <Sparkles className="mr-2 h-3.5 w-3.5" />
-                SPADE command center
+                SPADES command center
               </Badge>
               <div className="space-y-5">
                 <h1 className="max-w-4xl text-4xl font-semibold leading-[1.02] tracking-tight text-slate-950 sm:text-5xl xl:text-6xl">

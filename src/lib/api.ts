@@ -6,6 +6,7 @@ import type {
   Election,
   EventItem,
   Meeting,
+  MeetingRoomAttendanceEntry,
   MeetingRoomInfo,
   MeetingRoomPeer,
   MeetingRoomSignal,
@@ -95,10 +96,6 @@ export const api = {
     yearLevel: string;
     contactNumber: string;
     profilePictureUrl: string;
-    projectTitle: string;
-    projectDescription: string;
-    projectAttachmentName: string;
-    projectAttachmentUrl: string;
   }) =>
     request<{ applicant: Applicant }>("/api/auth/register", {
       method: "POST",
@@ -112,6 +109,14 @@ export const api = {
 
   getApplicants: () =>
     request<{ applicants: Applicant[] }>("/api/applicants"),
+
+  getMembers: () =>
+    request<{ members: User[] }>("/api/members"),
+
+  deleteMember: (id: number) =>
+    request<{ ok: boolean }>(`/api/members/${id}`, {
+      method: "DELETE",
+    }),
 
   updateApplicantStatus: (id: number, status: "approved" | "rejected") =>
     request<{ applicant: Applicant }>(`/api/applicants/${id}`, {
@@ -207,10 +212,18 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
+  listMeetingRooms: () =>
+    request<{ rooms: MeetingRoomInfo[] }>("/api/meeting-rooms"),
+
   getMeetingRoom: (roomId: string) =>
     request<{ room: MeetingRoomInfo }>(`/api/meeting-rooms/${encodeURIComponent(roomId)}`),
 
-  joinMeetingRoom: (roomId: string, payload: { peerId: string; name: string }) =>
+  getMeetingRoomAttendance: (roomId: string) =>
+    request<{ room: MeetingRoomInfo; attendees: MeetingRoomAttendanceEntry[] }>(
+      `/api/meeting-rooms/${encodeURIComponent(roomId)}/attendance`,
+    ),
+
+  joinMeetingRoom: (roomId: string, payload: { peerId: string; name: string; email: string }) =>
     request<{ room: MeetingRoomInfo; self: MeetingRoomPeer; peers: MeetingRoomPeer[] }>(
       `/api/meeting-rooms/${encodeURIComponent(roomId)}/join`,
       {

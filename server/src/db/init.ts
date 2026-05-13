@@ -73,6 +73,15 @@ export async function initializeDatabase(): Promise<void> {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
+    CREATE TABLE IF NOT EXISTS meetings (
+      id SERIAL PRIMARY KEY,
+      title TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'scheduled',
+      participants JSONB NOT NULL DEFAULT '[]'::jsonb,
+      scheduled_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
     CREATE TABLE IF NOT EXISTS meeting_rooms (
       id SERIAL PRIMARY KEY,
       room_code TEXT NOT NULL UNIQUE,
@@ -99,6 +108,17 @@ export async function initializeDatabase(): Promise<void> {
       type TEXT NOT NULL,
       payload JSONB,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS meeting_room_attendance (
+      id SERIAL PRIMARY KEY,
+      room_code TEXT NOT NULL REFERENCES meeting_rooms(room_code) ON DELETE CASCADE,
+      user_email TEXT NOT NULL,
+      name TEXT NOT NULL,
+      first_joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      last_joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (room_code, user_email)
     );
 
     CREATE TABLE IF NOT EXISTS elections (
@@ -168,6 +188,8 @@ export async function initializeDatabase(): Promise<void> {
     ALTER TABLE projects ADD COLUMN IF NOT EXISTS file_name TEXT NOT NULL DEFAULT '';
     ALTER TABLE projects ADD COLUMN IF NOT EXISTS file_url TEXT NOT NULL DEFAULT '';
     ALTER TABLE projects ADD COLUMN IF NOT EXISTS submitted_by_email TEXT NOT NULL DEFAULT '';
+    ALTER TABLE meetings ADD COLUMN IF NOT EXISTS participants JSONB NOT NULL DEFAULT '[]'::jsonb;
+    ALTER TABLE meetings ADD COLUMN IF NOT EXISTS scheduled_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
   `);
 
   await pool.query(`
@@ -214,6 +236,11 @@ export async function initializeDatabase(): Promise<void> {
     SELECT setval(
       pg_get_serial_sequence('meeting_room_signals', 'id'),
       COALESCE((SELECT MAX(id) FROM meeting_room_signals), 0) + 1,
+      false
+    );
+    SELECT setval(
+      pg_get_serial_sequence('meeting_room_attendance', 'id'),
+      COALESCE((SELECT MAX(id) FROM meeting_room_attendance), 0) + 1,
       false
     );
     SELECT setval(

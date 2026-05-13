@@ -5,6 +5,7 @@ import { authRouter } from "./routes/authRoutes.js";
 import { contentRouter } from "./routes/contentRoutes.js";
 import { dashboardRouter } from "./routes/dashboardRoutes.js";
 import { electionRouter } from "./routes/electionRoutes.js";
+import { memberRouter } from "./routes/memberRoutes.js";
 import { meetingRoomRouter } from "./routes/meetingRoomRoutes.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 
@@ -21,6 +22,7 @@ export function createApp() {
   app.use("/api/auth", authRouter);
   app.use("/api/dashboard", dashboardRouter);
   app.use("/api/applicants", applicantRouter);
+  app.use("/api/members", memberRouter);
   app.use("/api", contentRouter);
   app.use("/api/election", electionRouter);
   app.use("/api/meeting-rooms", meetingRoomRouter);

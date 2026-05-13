@@ -63,6 +63,7 @@ const navItems = [
   { title: "Elections", url: "/dashboard/elections", icon: Trophy },
   { title: "Voting", url: "/dashboard/voting", icon: Vote },
   { title: "Events", url: "/dashboard/events", icon: Calendar },
+  { title: "Members", url: "/dashboard/members", icon: Users },
   { title: "Applicants", url: "/dashboard/applicants", icon: Users },
   { title: "Projects", url: "/dashboard/projects", icon: FolderOpen },
   { title: "Meetings", url: "/dashboard/meetings", icon: Video },
@@ -79,8 +80,8 @@ function AppSidebar() {
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarContent className="pt-4">
         <div className={`flex items-center gap-3 px-4 mb-6 ${collapsed ? "justify-center" : ""}`}>
-          <img src={spadeLogo} alt="SPADE" className="w-8 h-8" width={512} height={512} />
-          {!collapsed && <span className="text-lg font-bold gradient-text">SPADE</span>}
+          <img src={spadeLogo} alt="SPADES" className="w-8 h-8" width={512} height={512} />
+          {!collapsed && <span className="text-lg font-bold gradient-text">SPADES</span>}
         </div>
 
         <SidebarGroup>

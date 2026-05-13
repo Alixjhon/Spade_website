@@ -18,10 +18,6 @@ export type MeetingSignalRecord = {
   created_at: Date | string;
 };
 
-export async function pruneStaleMeetingParticipants(staleBefore: Date) {
-  await pool.query("DELETE FROM meeting_room_participants WHERE last_seen_at < $1", [staleBefore]);
-}
-
 export async function upsertMeetingParticipant(input: {
   roomCode: string;
   peerId: string;

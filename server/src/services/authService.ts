@@ -4,7 +4,6 @@ import { AppError } from "../lib/appError.js";
 import { createAuthToken } from "../lib/authToken.js";
 import { mapApplicant } from "../mappers/applicantMapper.js";
 import { createActivity } from "../repositories/activityRepository.js";
-import { createApplicantProject } from "../repositories/applicantProjectRepository.js";
 import { createPendingUser, findApplicantById, findUserForLogin, updateUserProfileByEmail } from "../repositories/userRepository.js";
 import type { RegisterApplicantInput, UpdateProfileInput } from "../types/domain.js";
 
@@ -55,9 +54,7 @@ export async function registerApplicant(input: RegisterApplicantInput) {
     !input.location ||
     !input.course ||
     !input.yearLevel ||
-    !input.contactNumber ||
-    !input.projectTitle ||
-    !input.projectDescription
+    !input.contactNumber
   ) {
     throw new AppError("Please complete the onboarding form before submitting.", 400);
   }
@@ -78,14 +75,6 @@ export async function registerApplicant(input: RegisterApplicantInput) {
       yearLevel: input.yearLevel.trim(),
       contactNumber: input.contactNumber.trim(),
       profilePictureUrl: input.profilePictureUrl || "",
-    });
-
-    await createApplicantProject({
-      userId,
-      title: input.projectTitle.trim(),
-      description: input.projectDescription.trim(),
-      attachmentName: input.projectAttachmentName || "",
-      attachmentUrl: input.projectAttachmentUrl || "",
     });
 
     await createActivity(input.name.trim(), "submitted membership application", "applicant");

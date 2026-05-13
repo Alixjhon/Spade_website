@@ -175,6 +175,16 @@ export async function listPendingApplicants(): Promise<ApplicantRecord[]> {
   return result.rows as ApplicantRecord[];
 }
 
+export async function listActiveUsers(): Promise<AuthenticatedUser[]> {
+  const result = await pool.query(`${userProfileSelect} WHERE status = 'active' ORDER BY name ASC, id ASC`);
+  return result.rows as AuthenticatedUser[];
+}
+
+export async function deleteUserById(id: number): Promise<boolean> {
+  const result = await pool.query("DELETE FROM users WHERE id = $1", [id]);
+  return (result.rowCount ?? 0) > 0;
+}
+
 export async function findApplicantById(id: number): Promise<ApplicantRecord | null> {
   const result = await pool.query(`${applicantSelect} WHERE users.id = $1 LIMIT 1`, [id]);
   return (result.rows[0] as ApplicantRecord | undefined) ?? null;

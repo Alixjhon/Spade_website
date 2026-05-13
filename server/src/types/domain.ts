@@ -38,10 +38,6 @@ export interface RegisterApplicantInput {
   yearLevel: string;
   contactNumber: string;
   profilePictureUrl: string;
-  projectTitle: string;
-  projectDescription: string;
-  projectAttachmentName: string;
-  projectAttachmentUrl: string;
 }
 
 export interface UpdateProfileInput {
