@@ -28,7 +28,8 @@ import {
   Camera,
   PencilLine,
   Sparkles,
-  Newspaper
+  Newspaper,
+  UserPlus
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -61,7 +62,7 @@ const getInitials = (name?: string) =>
 
 const navItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Applicants", url: "/dashboard/applicants", icon: Users },
+  { title: "Applicants", url: "/dashboard/applicants", icon: UserPlus },
   { title: "Members", url: "/dashboard/members", icon: Users },
   { title: "Records", url: "/dashboard/records", icon: Newspaper },
   { title: "Projects", url: "/dashboard/projects", icon: FolderOpen },

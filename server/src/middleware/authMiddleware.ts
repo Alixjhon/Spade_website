@@ -2,6 +2,15 @@ import { Request, Response, NextFunction } from "express";
 import { AppError } from "../lib/appError.js";
 import { verifyAuthToken } from "../lib/authToken.js";
 
+const OFFICER_ROLES = new Set([
+  "president",
+  "vice-president",
+  "secretary",
+  "asst-secretary",
+  "treasurer",
+  "pio",
+]);
+
 export type AuthenticatedRequest = Request & {
   user?: {
     email: string;
@@ -46,6 +55,17 @@ export function requirePresident(req: Request, res: Response, next: NextFunction
     const user = (req as AuthenticatedRequest).user;
     if (!user || user.role !== "president") {
       throw new AppError("Only the president can assign project activities.", 403);
+    }
+
+    next();
+  });
+}
+
+export function requireOfficer(req: Request, res: Response, next: NextFunction): void {
+  requireAuth(req, res, () => {
+    const user = (req as AuthenticatedRequest).user;
+    if (!user || !OFFICER_ROLES.has(user.role)) {
+      throw new AppError("Officer access required.", 403);
     }
 
     next();

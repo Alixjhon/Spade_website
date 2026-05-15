@@ -4,7 +4,8 @@ import { api } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { ROLES } from "@/lib/roles";
+import { ROLES, isOfficer } from "@/lib/roles";
+import { useAuth } from "@/components/AuthProvider";
 import { toast } from "sonner";
 
 const getInitials = (name: string) => name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
@@ -38,6 +39,7 @@ const MemberCardSkeleton = () => (
 
 const MembersPage = () => {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const { data, isLoading } = useQuery({
     queryKey: ["members"],
     queryFn: api.getMembers,
@@ -46,6 +48,7 @@ const MembersPage = () => {
   const members = data?.members ?? [];
   const uniqueRoles = new Set(members.map((member) => member.role)).size;
   const showSkeleton = isLoading && !data;
+  const canKickMembers = user ? isOfficer(user.role as Parameters<typeof isOfficer>[0]) : false;
 
   const deleteMemberMutation = useMutation({
     mutationFn: api.deleteMember,
@@ -158,21 +161,23 @@ const MembersPage = () => {
                 </p>
               </div>
 
-              <div className="mt-6 border-t border-border/50 pt-4">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-11 w-full rounded-2xl border-border/60 bg-white/90 px-4 text-sm font-medium text-slate-700 shadow-sm transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
-                  disabled={deleteMemberMutation.isPending}
-                  onClick={() => {
-                    const confirmed = window.confirm(`Kick ${member.name} from members? This will delete their data.`);
-                    if (!confirmed) return;
-                    deleteMemberMutation.mutate(member.id);
-                  }}
-                >
-                  {deleteMemberMutation.isPending ? "Removing member..." : `Kick ${member.name}`}
-                </Button>
-              </div>
+              {canKickMembers && (
+                <div className="mt-6 border-t border-border/50 pt-4">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-11 w-full rounded-2xl border-border/60 bg-white/90 px-4 text-sm font-medium text-slate-700 shadow-sm transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
+                    disabled={deleteMemberMutation.isPending}
+                    onClick={() => {
+                      const confirmed = window.confirm(`Kick ${member.name} from members? This will delete their data.`);
+                      if (!confirmed) return;
+                      deleteMemberMutation.mutate(member.id);
+                    }}
+                  >
+                    {deleteMemberMutation.isPending ? "Removing member..." : `Kick ${member.name}`}
+                  </Button>
+                </div>
+              )}
             </article>
           );
         })}

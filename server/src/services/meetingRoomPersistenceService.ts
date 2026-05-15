@@ -1,10 +1,12 @@
 import {
   countMeetingRoomsByCode,
   createMeetingRoomRecord,
+  deleteMeetingRoomRecordByCode,
   getMeetingRoomRecordByCode,
   listMeetingRoomRecords,
   type MeetingRoomRecord,
 } from "../repositories/meetingRoomRepository.js";
+import { AppError } from "../lib/appError.js";
 import { countMeetingAttendanceByRoom, listMeetingAttendanceByRoom } from "../repositories/meetingAttendanceRepository.js";
 
 function sanitizeRoomId(roomId: string) {
@@ -102,4 +104,14 @@ export async function getPersistentMeetingRoomAttendance(roomId: string) {
     room: serializeRoom(record, participantCount),
     attendees: attendees.map(serializeAttendanceRecord),
   };
+}
+
+export async function deletePersistentMeetingRoom(roomId: string) {
+  const normalizedRoomId = sanitizeRoomId(roomId);
+  const deleted = await deleteMeetingRoomRecordByCode(normalizedRoomId);
+  if (!deleted) {
+    throw new AppError("Meeting room not found.", 404);
+  }
+
+  return { ok: true as const };
 }

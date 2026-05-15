@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { asyncHandler } from "../lib/asyncHandler.js";
+import { requireOfficer } from "../middleware/authMiddleware.js";
 import {
   getMeetingRoomParticipantCount,
   joinMeetingRoomSession,
@@ -10,6 +11,7 @@ import {
 } from "../services/meetingRoomService.js";
 import {
   createPersistentMeetingRoom,
+  deletePersistentMeetingRoom,
   getPersistentMeetingRoom,
   getPersistentMeetingRoomAttendance,
   listPersistentMeetingRooms,
@@ -23,6 +25,7 @@ function singleValue(value: unknown) {
 
 meetingRoomRouter.post(
   "/create",
+  requireOfficer,
   asyncHandler(async (req, res) => {
     const room = await createPersistentMeetingRoom({
       title: String(req.body.title || ""),
@@ -66,6 +69,15 @@ meetingRoomRouter.get(
     }
 
     res.json(attendance);
+  }),
+);
+
+meetingRoomRouter.delete(
+  "/:roomId",
+  requireOfficer,
+  asyncHandler(async (req, res) => {
+    const result = await deletePersistentMeetingRoom(singleValue(req.params.roomId));
+    res.json(result);
   }),
 );
 

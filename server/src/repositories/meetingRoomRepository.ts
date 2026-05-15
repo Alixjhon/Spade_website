@@ -54,3 +54,14 @@ export async function listMeetingRoomRecords() {
   );
   return result.rows;
 }
+
+export async function deleteMeetingRoomRecordByCode(roomCode: string) {
+  const result = await pool.query<{ room_code: string }>(
+    `DELETE FROM meeting_rooms
+     WHERE room_code = $1
+     RETURNING room_code`,
+    [roomCode],
+  );
+
+  return result.rows[0] ?? null;
+}

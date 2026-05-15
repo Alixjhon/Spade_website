@@ -16,6 +16,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
+import { isOfficer } from "@/lib/roles";
 import type {
   MeetingRoomInfo,
   MeetingRoomPeer,
@@ -198,6 +199,7 @@ const MeetingsPage = () => {
   });
 
   const fallbackTitle = data?.meeting?.title ?? "SPADE Team Meeting";
+  const canCreateMeeting = user ? isOfficer(user.role as Parameters<typeof isOfficer>[0]) : false;
   const peersRef = useRef(new Map<string, PeerConnectionEntry>());
   const peerIdRef = useRef("");
   const joinedAtRef = useRef(0);
@@ -506,7 +508,7 @@ const MeetingsPage = () => {
   }
 
   async function createRoom() {
-    if (!user) {
+    if (!user || !canCreateMeeting) {
       return;
     }
 
@@ -785,29 +787,31 @@ const MeetingsPage = () => {
         </div>
 
         <div className="grid gap-4 lg:grid-cols-2">
-          <div className="glass-card-elevated rounded-2xl p-6 space-y-4">
-            <div>
-              <h2 className="text-lg font-semibold text-foreground">
-                Create Meeting
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Start a new room and share the code with other users.
-              </p>
+          {canCreateMeeting && (
+            <div className="glass-card-elevated rounded-2xl p-6 space-y-4">
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">
+                  Create Meeting
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Start a new room and share the code with other users.
+                </p>
+              </div>
+              <Input
+                value={meetingTitleInput}
+                onChange={(event) => setMeetingTitleInput(event.target.value)}
+                placeholder={fallbackTitle}
+              />
+              <Button
+                onClick={() => void createRoom()}
+                disabled={isCreatingRoom || !user}
+                className="w-full"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                {isCreatingRoom ? "Creating..." : "Create Meeting"}
+              </Button>
             </div>
-            <Input
-              value={meetingTitleInput}
-              onChange={(event) => setMeetingTitleInput(event.target.value)}
-              placeholder={fallbackTitle}
-            />
-            <Button
-              onClick={() => void createRoom()}
-              disabled={isCreatingRoom || !user}
-              className="w-full"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              {isCreatingRoom ? "Creating..." : "Create Meeting"}
-            </Button>
-          </div>
+          )}
 
           <div className="glass-card-elevated rounded-2xl p-6 space-y-4">
             <div>

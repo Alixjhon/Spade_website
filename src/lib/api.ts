@@ -223,6 +223,11 @@ export const api = {
       `/api/meeting-rooms/${encodeURIComponent(roomId)}/attendance`,
     ),
 
+  deleteMeetingRoom: (roomId: string) =>
+    request<{ ok: boolean }>(`/api/meeting-rooms/${encodeURIComponent(roomId)}`, {
+      method: "DELETE",
+    }),
+
   joinMeetingRoom: (roomId: string, payload: { peerId: string; name: string; email: string }) =>
     request<{ room: MeetingRoomInfo; self: MeetingRoomPeer; peers: MeetingRoomPeer[] }>(
       `/api/meeting-rooms/${encodeURIComponent(roomId)}/join`,

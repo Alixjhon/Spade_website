@@ -2,11 +2,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ROLES } from "@/lib/roles";
+import { ROLES, isOfficer } from "@/lib/roles";
 import { CheckCircle, XCircle, Clock, Eye, Mail, MapPin, Phone, GraduationCap } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { useAuth } from "@/components/AuthProvider";
 
 const statusStyles = {
   pending: "bg-amber-100 text-amber-700 border-amber-200",
@@ -58,6 +59,7 @@ const ApplicantRowSkeleton = ({ index }: { index: number }) => (
 );
 
 const ApplicantsPage = () => {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const { data, isLoading } = useQuery({
     queryKey: ["applicants"],
@@ -67,6 +69,7 @@ const ApplicantsPage = () => {
   const applicants = data?.applicants ?? [];
   const pendingCount = applicants.filter((applicant) => applicant.status === "pending").length;
   const showSkeleton = isLoading && !data;
+  const canReviewApplicants = user ? isOfficer(user.role as Parameters<typeof isOfficer>[0]) : false;
 
   const updateApplicantMutation = useMutation({
     mutationFn: ({ id, status }: { id: number; status: "approved" | "rejected" }) =>
@@ -184,7 +187,7 @@ const ApplicantsPage = () => {
 
                         <td className="p-4">
                           <div className="flex items-center gap-2 whitespace-nowrap">
-                            {applicant.status === "pending" && (
+                            {canReviewApplicants && applicant.status === "pending" && (
                               <>
                                 <Button
                                   size="sm"
@@ -365,7 +368,7 @@ const ApplicantsPage = () => {
                                       </section>
                                     </div>
 
-                                    {applicant.status === "pending" && (
+                                    {canReviewApplicants && applicant.status === "pending" && (
                                       <div className="mt-6 rounded-[2rem] border border-border/50 bg-slate-950 p-5 text-white shadow-xl">
                                         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                                           <div>

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { asyncHandler } from "../lib/asyncHandler.js";
 import { getApplicants, reviewApplicant } from "../services/applicantService.js";
+import { requireOfficer } from "../middleware/authMiddleware.js";
 
 export const applicantRouter = Router();
 
@@ -14,6 +15,7 @@ applicantRouter.get(
 
 applicantRouter.patch(
   "/:id",
+  requireOfficer,
   asyncHandler(async (req, res) => {
     const applicant = await reviewApplicant(Number(req.params.id), req.body?.status as "approved" | "rejected");
     res.json({ applicant });
