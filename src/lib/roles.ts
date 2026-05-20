@@ -6,6 +6,7 @@ export const APPLICANT_ROLES = [
 ] as const;
 
 export const OFFICER_POSITIONS = [
+  { id: "Admin", label: "Admin", icon: "Star" },
   { id: "president", label: "President", icon: "Crown" },
   { id: "vice-president", label: "Vice President", icon: "Shield" },
   { id: "secretary", label: "Secretary", icon: "FileText" },
