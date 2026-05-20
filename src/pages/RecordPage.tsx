@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CalendarDays,
   Clock3,
+  Loader2,
   Mail,
   Trash2,
   UserRound,
@@ -11,6 +12,13 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { api } from "@/lib/api";
 import { isOfficer } from "@/lib/roles";
 import { toast } from "sonner";
@@ -55,6 +63,7 @@ const RecordPage = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [selectedHistoryRoomId, setSelectedHistoryRoomId] = useState("");
+  const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
   const canDeleteMeetingRooms = user
     ? isOfficer(user.role as Parameters<typeof isOfficer>[0])
     : false;
@@ -68,13 +77,18 @@ const RecordPage = () => {
     useQuery({
       queryKey: ["meeting-room-attendance", selectedHistoryRoomId],
       queryFn: () => api.getMeetingRoomAttendance(selectedHistoryRoomId),
-      enabled: Boolean(selectedHistoryRoomId),
+      enabled: Boolean(selectedHistoryRoomId && isAttendanceModalOpen),
     });
 
   const meetingRooms = roomHistoryData?.rooms ?? [];
   const selectedRoom =
     meetingRooms.find((room) => room.roomId === selectedHistoryRoomId) ?? null;
-  const selectedAttendeeCount = selectedAttendanceData?.attendees.length ?? 0;
+  const totalAttendeeRecords = meetingRooms.reduce(
+    (total, room) => total + room.participantCount,
+    0,
+  );
+  const selectedAttendeeCount =
+    selectedAttendanceData?.attendees.length ?? selectedRoom?.participantCount ?? 0;
   const hasRooms = meetingRooms.length > 0;
 
   const deleteRoomMutation = useMutation({
@@ -85,6 +99,9 @@ const RecordPage = () => {
       setSelectedHistoryRoomId((current) =>
         current === deletedRoomId ? "" : current,
       );
+      if (selectedHistoryRoomId === deletedRoomId) {
+        setIsAttendanceModalOpen(false);
+      }
       toast.success("Meeting room deleted.");
     },
     onError: (error: Error) => {
@@ -95,6 +112,7 @@ const RecordPage = () => {
   useEffect(() => {
     if (!meetingRooms.length) {
       setSelectedHistoryRoomId("");
+      setIsAttendanceModalOpen(false);
       return;
     }
 
@@ -118,8 +136,8 @@ const RecordPage = () => {
               Meeting room records
             </h1>
             <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-              Pick a saved room to view its attendees. Officers can also delete
-              a room and its saved attendance data from here.
+              Select a saved room to open its attendance list. Officers can
+              also delete a room and its saved attendance data from here.
             </p>
           </div>
 
@@ -134,7 +152,7 @@ const RecordPage = () => {
             </div>
             <div className="rounded-2xl border border-white/60 bg-white/70 px-4 py-3 backdrop-blur">
               <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
-                Current room
+                Selected room
               </p>
               <p className="mt-2 text-sm font-semibold text-foreground">
                 {selectedRoom ? formatRoomCode(selectedRoom.roomId) : "None"}
@@ -145,7 +163,7 @@ const RecordPage = () => {
                 Attendees
               </p>
               <p className="mt-2 text-2xl font-semibold text-foreground">
-                {selectedAttendeeCount}
+                {totalAttendeeRecords}
               </p>
             </div>
             <div className="rounded-2xl border border-white/60 bg-white/70 px-4 py-3 backdrop-blur">
@@ -160,18 +178,18 @@ const RecordPage = () => {
         </div>
       </section>
 
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid gap-5">
         <section className="glass-card-elevated rounded-[2rem] p-6">
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                Rooms
+                Meetings
               </p>
               <h2 className="text-lg font-semibold text-foreground">
-                Choose a room
+                Saved meeting rooms
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Select any saved room to load its attendance list.
+                Click a meeting to fetch its attendees in a modal.
               </p>
             </div>
 
@@ -211,16 +229,19 @@ const RecordPage = () => {
                   <div className="flex items-start gap-3">
                     <button
                       type="button"
-                      onClick={() => setSelectedHistoryRoomId(room.roomId)}
+                      onClick={() => {
+                        setSelectedHistoryRoomId(room.roomId);
+                        setIsAttendanceModalOpen(true);
+                      }}
                       className="flex-1 text-left"
                     >
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="font-semibold text-foreground">
                           {room.title}
                         </p>
-                        {selectedHistoryRoomId === room.roomId && (
+                        {selectedHistoryRoomId === room.roomId && isAttendanceModalOpen && (
                           <span className="rounded-full bg-sky-600 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.16em] text-white">
-                            Selected
+                            Open
                           </span>
                         )}
                         <span className="rounded-full bg-slate-950 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.16em] text-white">
@@ -262,6 +283,7 @@ const RecordPage = () => {
                           if (!confirmed) return;
                           deleteRoomMutation.mutate(room.roomId);
                         }}
+                        aria-label={`Delete ${room.title}`}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -272,80 +294,125 @@ const RecordPage = () => {
             )}
           </div>
         </section>
+      </div>
 
-        <section className="glass-card-elevated rounded-[2rem] p-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                Attendees
-              </p>
-              <h2 className="text-lg font-semibold text-foreground">
-                {selectedAttendanceData?.room.title ?? "View attendees"}
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
+      <Dialog
+        open={isAttendanceModalOpen}
+        onOpenChange={(open) => setIsAttendanceModalOpen(open)}
+      >
+        <DialogContent className="max-h-[92vh] max-w-4xl overflow-hidden rounded-2xl border-0 p-0 shadow-2xl">
+          <div className="bg-[linear-gradient(135deg,rgba(14,165,233,0.12),rgba(255,255,255,0.96),rgba(16,185,129,0.10))] px-5 py-5 sm:px-7">
+            <DialogHeader className="pr-8 text-left">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-sky-700 shadow-sm ring-1 ring-sky-100">
+                <Users2 className="h-5 w-5" />
+              </div>
+              <DialogTitle className="mt-3 text-xl leading-tight sm:text-2xl">
+                {selectedAttendanceData?.room.title ??
+                  selectedRoom?.title ??
+                  "Meeting attendees"}
+              </DialogTitle>
+              <DialogDescription className="text-sm">
                 {selectedAttendanceData?.room
                   ? `Meeting time: ${formatMeetingDateTime(
                       selectedAttendanceData.room.createdAt,
                     )}`
-                  : "The attendees container stays ready here. Click a room on the left to load its attendee list."}
-              </p>
-            </div>
+                  : selectedRoom
+                    ? `Meeting time: ${formatMeetingDateTime(selectedRoom.createdAt)}`
+                    : "Fetching meeting attendance."}
+              </DialogDescription>
+            </DialogHeader>
 
-            <div className="grid grid-cols-2 gap-3 sm:w-[320px]">
-              <div className="rounded-2xl border border-border/50 bg-background/70 px-4 py-3">
-                <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
-                  Selected room
-                </p>
-                <p className="mt-2 inline-flex items-center gap-2 text-sm font-semibold text-foreground">
-                  <Video className="h-4 w-4 text-primary" />
-                  {selectedRoom ? formatRoomCode(selectedRoom.roomId) : "None"}
-                </p>
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl border border-white/70 bg-white/85 px-4 py-3 shadow-sm backdrop-blur">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-100 text-sky-700">
+                    <Video className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                      Room
+                    </p>
+                    <p className="truncate text-sm font-semibold text-foreground">
+                      {selectedRoom ? formatRoomCode(selectedRoom.roomId) : "None"}
+                    </p>
+                  </div>
+                </div>
               </div>
-              <div className="rounded-2xl border border-border/50 bg-background/70 px-4 py-3">
-                <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
-                  Attendees
-                </p>
-                <p className="mt-2 inline-flex items-center gap-2 text-sm font-semibold text-foreground">
-                  <Users2 className="h-4 w-4 text-primary" />
-                  {selectedAttendeeCount}
-                </p>
+              <div className="rounded-2xl border border-white/70 bg-white/85 px-4 py-3 shadow-sm backdrop-blur">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+                    <Users2 className="h-4 w-4" />
+                  </span>
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                      Attendees
+                    </p>
+                    <p className="text-sm font-semibold text-foreground">
+                      {selectedAttendeeCount}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="rounded-2xl border border-white/70 bg-white/85 px-4 py-3 shadow-sm backdrop-blur sm:col-span-1">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+                    <UserRound className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                      Host
+                    </p>
+                    <p className="truncate text-sm font-semibold text-foreground">
+                      {selectedRoom?.hostName ?? "Host"}
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="mt-5">
+          <div className="max-h-[58vh] overflow-y-auto bg-slate-50/60 px-5 py-5 sm:px-7">
             {isAttendanceLoading ? (
-              <div className="space-y-3">
-                {Array.from({ length: 4 }).map((_, index) => (
-                  <div
-                    key={index}
-                    className="rounded-[1.75rem] border border-border/50 bg-background/70 p-4"
-                  >
-                    <div className="h-4 w-40 animate-pulse rounded bg-slate-200/70" />
-                    <div className="mt-3 h-3 w-56 animate-pulse rounded bg-slate-200/70" />
-                    <div className="mt-4 h-8 w-28 animate-pulse rounded-full bg-slate-200/70" />
-                  </div>
-                ))}
+              <div className="rounded-2xl border border-sky-100 bg-white p-8 text-center shadow-sm">
+                <Loader2 className="mx-auto h-8 w-8 animate-spin text-sky-600" />
+                <p className="mt-4 font-medium text-foreground">
+                  Loading attendees
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Fetching the saved attendance records for this meeting.
+                </p>
               </div>
             ) : !selectedAttendanceData ? (
-              <div className="rounded-[1.75rem] border border-dashed border-border/60 bg-background/60 p-6 text-sm text-muted-foreground">
+              <div className="rounded-2xl border border-dashed border-sky-200 bg-white p-8 text-center shadow-sm">
+                <Users2 className="mx-auto h-9 w-9 text-sky-500" />
+                <p className="mt-4 font-medium text-foreground">
+                  Attendance is almost ready
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
                 {hasRooms
-                  ? "Room data has loaded. Click any room in the left container to fetch and show its attendees here."
+                  ? "Fetching attendees for this meeting."
                   : "No saved rooms yet."}
+                </p>
               </div>
             ) : selectedAttendanceData.attendees.length === 0 ? (
-              <div className="rounded-[1.75rem] border border-dashed border-border/60 bg-background/60 p-6 text-sm text-muted-foreground">
-                No attendees have been recorded for this meeting yet.
+              <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center shadow-sm">
+                <Users2 className="mx-auto h-9 w-9 text-muted-foreground" />
+                <p className="mt-4 font-medium text-foreground">
+                  No attendees yet
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  No attendees have been recorded for this meeting.
+                </p>
               </div>
             ) : (
               <div className="space-y-3">
                 {selectedAttendanceData.attendees.map((attendee) => (
                   <div
                     key={attendee.id}
-                    className="rounded-[1.75rem] border border-border/50 bg-background/75 p-4 transition hover:border-sky-200 hover:bg-slate-50/90"
+                    className="rounded-2xl border border-border/50 bg-white p-4 shadow-sm transition hover:border-sky-200 hover:shadow-md"
                   >
-                    <div className="flex items-start gap-3">
-                      <div className="flex h-11 w-11 items-center justify-center rounded-2xl gradient-primary shadow-sm">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl gradient-primary shadow-sm">
                         <span className="text-xs font-bold text-primary-foreground">
                           {initials(attendee.name)}
                         </span>
@@ -368,25 +435,33 @@ const RecordPage = () => {
                           </span>
                         </div>
 
-                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                          <div className="rounded-2xl border border-slate-200/70 bg-white/80 px-3 py-3">
-                            <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-                              First joined
-                            </p>
-                            <p className="mt-2 inline-flex items-center gap-1.5 text-sm text-foreground">
-                              <Clock3 className="h-3.5 w-3.5 text-sky-600" />
-                              {formatMeetingDateTime(attendee.firstJoinedAt)}
-                            </p>
+                        <div className="mt-4 grid gap-3 md:grid-cols-2">
+                          <div className="flex items-center gap-3 rounded-2xl border border-slate-200/70 bg-slate-50 px-3 py-3">
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-sky-700">
+                              <Clock3 className="h-4 w-4" />
+                            </span>
+                            <div className="min-w-0">
+                              <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                                First joined
+                              </p>
+                              <p className="truncate text-sm text-foreground">
+                                {formatMeetingDateTime(attendee.firstJoinedAt)}
+                              </p>
+                            </div>
                           </div>
 
-                          <div className="rounded-2xl border border-slate-200/70 bg-white/80 px-3 py-3">
-                            <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-                              Last joined
-                            </p>
-                            <p className="mt-2 inline-flex items-center gap-1.5 text-sm text-foreground">
-                              <Clock3 className="h-3.5 w-3.5 text-sky-600" />
-                              {formatMeetingDateTime(attendee.lastJoinedAt)}
-                            </p>
+                          <div className="flex items-center gap-3 rounded-2xl border border-slate-200/70 bg-slate-50 px-3 py-3">
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+                              <Clock3 className="h-4 w-4" />
+                            </span>
+                            <div className="min-w-0">
+                              <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                                Last joined
+                              </p>
+                              <p className="truncate text-sm text-foreground">
+                                {formatMeetingDateTime(attendee.lastJoinedAt)}
+                              </p>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -396,8 +471,8 @@ const RecordPage = () => {
               </div>
             )}
           </div>
-        </section>
-      </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
