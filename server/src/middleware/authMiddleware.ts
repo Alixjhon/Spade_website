@@ -3,6 +3,7 @@ import { AppError } from "../lib/appError.js";
 import { verifyAuthToken } from "../lib/authToken.js";
 
 const OFFICER_ROLES = new Set([
+  "Admin",
   "president",
   "vice-president",
   "secretary",
