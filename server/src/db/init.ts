@@ -17,17 +17,6 @@ export async function initializeDatabase(): Promise<void> {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
-    CREATE TABLE IF NOT EXISTS applicant_projects (
-      id SERIAL PRIMARY KEY,
-      user_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
-      title TEXT NOT NULL DEFAULT '',
-      description TEXT NOT NULL DEFAULT '',
-      attachment_name TEXT NOT NULL DEFAULT '',
-      attachment_url TEXT NOT NULL DEFAULT '',
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-
     CREATE TABLE IF NOT EXISTS activities (
       id SERIAL PRIMARY KEY,
       user_name TEXT NOT NULL,
@@ -73,40 +62,12 @@ export async function initializeDatabase(): Promise<void> {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
-    CREATE TABLE IF NOT EXISTS meetings (
-      id SERIAL PRIMARY KEY,
-      title TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'scheduled',
-      participants JSONB NOT NULL DEFAULT '[]'::jsonb,
-      scheduled_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-
     CREATE TABLE IF NOT EXISTS meeting_rooms (
       id SERIAL PRIMARY KEY,
       room_code TEXT NOT NULL UNIQUE,
       title TEXT NOT NULL,
       host_name TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'active',
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-
-    CREATE TABLE IF NOT EXISTS meeting_room_participants (
-      room_code TEXT NOT NULL REFERENCES meeting_rooms(room_code) ON DELETE CASCADE,
-      peer_id TEXT NOT NULL,
-      name TEXT NOT NULL,
-      joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      PRIMARY KEY (room_code, peer_id)
-    );
-
-    CREATE TABLE IF NOT EXISTS meeting_room_signals (
-      id SERIAL PRIMARY KEY,
-      room_code TEXT NOT NULL REFERENCES meeting_rooms(room_code) ON DELETE CASCADE,
-      from_peer_id TEXT NOT NULL,
-      to_peer_id TEXT NOT NULL,
-      type TEXT NOT NULL,
-      payload JSONB,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 

@@ -2,6 +2,7 @@ import { AppError } from "../lib/appError.js";
 import { mapApplicant } from "../mappers/applicantMapper.js";
 import { createActivity } from "../repositories/activityRepository.js";
 import { findApplicantById, listPendingApplicants, updateUserStatus } from "../repositories/userRepository.js";
+import { sendApplicantAcceptanceEmail } from "./emailService.js";
 
 export async function getApplicants() {
   const applicants = await listPendingApplicants();
@@ -20,6 +21,17 @@ export async function reviewApplicant(id: number, status: "approved" | "rejected
 
   await updateUserStatus(id, status === "approved" ? "active" : "rejected");
   await createActivity(applicant.name, `${status} membership application`, "applicant");
+
+  if (status === "approved") {
+    try {
+      await sendApplicantAcceptanceEmail({
+        name: applicant.name,
+        email: applicant.email,
+      });
+    } catch (error) {
+      console.error("Failed to send applicant acceptance email:", error);
+    }
+  }
 
   return {
     ...mapApplicant(applicant),
