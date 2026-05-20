@@ -7,6 +7,7 @@ export const contentRouter = Router();
 
 contentRouter.get(
   "/events",
+  requireAuth,
   asyncHandler(async (_req, res) => {
     const events = await getEvents();
     res.json({ events });
@@ -58,6 +59,7 @@ contentRouter.patch(
 
 contentRouter.get(
   "/meetings",
+  requireAuth,
   asyncHandler(async (_req, res) => {
     const meeting = await getMeeting();
     res.json({ meeting });

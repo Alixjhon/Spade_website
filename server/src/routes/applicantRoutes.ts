@@ -7,6 +7,7 @@ export const applicantRouter = Router();
 
 applicantRouter.get(
   "/",
+  requireOfficer,
   asyncHandler(async (_req, res) => {
     const applicants = await getApplicants();
     res.json({ applicants });

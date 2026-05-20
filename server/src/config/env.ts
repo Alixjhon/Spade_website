@@ -28,6 +28,7 @@ export const env = {
   databaseUrl: requireEnv("DATABASE_URL"),
   allowedEmailDomain: requireEnv("ALLOWED_EMAIL_DOMAIN"),
   defaultPassword: requireEnv("DEFAULT_PASSWORD"),
+  jwtSecret: optionalEnv("JWT_SECRET") ?? requireEnv("DEFAULT_PASSWORD"),
   smtpHost: optionalEnv("SMTP_HOST"),
   smtpPort,
   smtpUser: optionalEnv("SMTP_USER"),

@@ -1,13 +1,19 @@
 import crypto from "node:crypto";
 import { env } from "../config/env.js";
 
-const TOKEN_TTL_MS = 1000 * 60 * 60 * 24 * 7;
+const TOKEN_TTL_SECONDS = 60 * 60 * 24 * 7;
 
 export interface TokenPayload {
   email: string;
   role: string;
   name: string;
   exp: number;
+  iat: number;
+}
+
+interface JwtHeader {
+  alg: "HS256";
+  typ: "JWT";
 }
 
 function toBase64Url(value: string) {
@@ -19,30 +25,43 @@ function fromBase64Url(value: string) {
 }
 
 function sign(value: string) {
-  return crypto.createHmac("sha256", env.defaultPassword).update(value).digest("base64url");
+  return crypto.createHmac("sha256", env.jwtSecret).update(value).digest("base64url");
 }
 
 export function createAuthToken(input: { email: string; role: string; name: string }) {
+  const now = Math.floor(Date.now() / 1000);
+  const header: JwtHeader = {
+    alg: "HS256",
+    typ: "JWT",
+  };
   const payload: TokenPayload = {
     email: input.email,
     role: input.role,
     name: input.name,
-    exp: Date.now() + TOKEN_TTL_MS,
+    iat: now,
+    exp: now + TOKEN_TTL_SECONDS,
   };
 
+  const encodedHeader = toBase64Url(JSON.stringify(header));
   const encodedPayload = toBase64Url(JSON.stringify(payload));
-  const signature = sign(encodedPayload);
-  return `${encodedPayload}.${signature}`;
+  const signedValue = `${encodedHeader}.${encodedPayload}`;
+  const signature = sign(signedValue);
+  return `${signedValue}.${signature}`;
 }
 
 export function verifyAuthToken(token: string): TokenPayload | null {
-  const [encodedPayload, signature] = token.split(".");
-
-  if (!encodedPayload || !signature) {
+  const tokenParts = token.split(".");
+  if (tokenParts.length !== 3) {
     return null;
   }
 
-  const expectedSignature = sign(encodedPayload);
+  const [encodedHeader, encodedPayload, signature] = tokenParts;
+
+  if (!encodedHeader || !encodedPayload || !signature) {
+    return null;
+  }
+
+  const expectedSignature = sign(`${encodedHeader}.${encodedPayload}`);
   const signatureBuffer = Buffer.from(signature);
   const expectedBuffer = Buffer.from(expectedSignature);
 
@@ -55,13 +74,18 @@ export function verifyAuthToken(token: string): TokenPayload | null {
   }
 
   try {
-    const payload = JSON.parse(fromBase64Url(encodedPayload)) as TokenPayload;
-
-    if (!payload.email || !payload.role || !payload.name || !payload.exp) {
+    const header = JSON.parse(fromBase64Url(encodedHeader)) as JwtHeader;
+    if (header.alg !== "HS256" || header.typ !== "JWT") {
       return null;
     }
 
-    if (payload.exp < Date.now()) {
+    const payload = JSON.parse(fromBase64Url(encodedPayload)) as TokenPayload;
+
+    if (!payload.email || !payload.role || !payload.name || !payload.iat || !payload.exp) {
+      return null;
+    }
+
+    if (payload.exp < Math.floor(Date.now() / 1000)) {
       return null;
     }
 

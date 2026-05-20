@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { asyncHandler } from "../lib/asyncHandler.js";
-import { requireOfficer } from "../middleware/authMiddleware.js";
+import { requireAuth, requireOfficer } from "../middleware/authMiddleware.js";
 import {
   getMeetingRoomParticipantCount,
   joinMeetingRoomSession,
@@ -38,6 +38,7 @@ meetingRoomRouter.post(
 
 meetingRoomRouter.get(
   "/",
+  requireAuth,
   asyncHandler(async (_req, res) => {
     const rooms = await listPersistentMeetingRooms();
     res.json({ rooms });
@@ -46,6 +47,7 @@ meetingRoomRouter.get(
 
 meetingRoomRouter.get(
   "/:roomId",
+  requireAuth,
   asyncHandler(async (req, res) => {
     const roomId = singleValue(req.params.roomId);
     const room = await getPersistentMeetingRoom(roomId, await getMeetingRoomParticipantCount(roomId));
@@ -60,6 +62,7 @@ meetingRoomRouter.get(
 
 meetingRoomRouter.get(
   "/:roomId/attendance",
+  requireAuth,
   asyncHandler(async (req, res) => {
     const roomId = singleValue(req.params.roomId);
     const attendance = await getPersistentMeetingRoomAttendance(roomId);
@@ -83,6 +86,7 @@ meetingRoomRouter.delete(
 
 meetingRoomRouter.post(
   "/:roomId/join",
+  requireAuth,
   asyncHandler(async (req, res) => {
     const roomId = singleValue(req.params.roomId);
     const participantCount = await getMeetingRoomParticipantCount(roomId);
@@ -105,6 +109,7 @@ meetingRoomRouter.post(
 
 meetingRoomRouter.get(
   "/:roomId/poll",
+  requireAuth,
   asyncHandler(async (req, res) => {
     const roomId = singleValue(req.params.roomId);
     const roomInfo = await getPersistentMeetingRoom(roomId, await getMeetingRoomParticipantCount(roomId));
@@ -130,6 +135,7 @@ meetingRoomRouter.get(
 
 meetingRoomRouter.post(
   "/:roomId/signal",
+  requireAuth,
   asyncHandler(async (req, res) => {
     const result = await sendMeetingSignal({
       roomId: singleValue(req.params.roomId),
@@ -145,6 +151,7 @@ meetingRoomRouter.post(
 
 meetingRoomRouter.post(
   "/:roomId/heartbeat",
+  requireAuth,
   asyncHandler(async (req, res) => {
     const result = await touchMeetingParticipant({
       roomId: singleValue(req.params.roomId),
@@ -157,6 +164,7 @@ meetingRoomRouter.post(
 
 meetingRoomRouter.post(
   "/:roomId/leave",
+  requireAuth,
   asyncHandler(async (req, res) => {
     const result = await leaveMeetingRoom({
       roomId: singleValue(req.params.roomId),

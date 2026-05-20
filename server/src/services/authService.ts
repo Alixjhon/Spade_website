@@ -7,23 +7,88 @@ import { createActivity } from "../repositories/activityRepository.js";
 import { createPendingUser, findApplicantById, findUserForLogin, updateUserProfileByEmail } from "../repositories/userRepository.js";
 import type { RegisterApplicantInput, UpdateProfileInput } from "../types/domain.js";
 
+const MAX_LOGIN_ATTEMPTS = 10;
+const LOGIN_LOCKOUT_MS = 15 * 60 * 1000;
+
+const loginAttempts = new Map<
+  string,
+  {
+    failedAttempts: number;
+    lockedUntil: number;
+  }
+>();
+
+function normalizeEmail(email: string) {
+  return email.trim().toLowerCase();
+}
+
+function getLoginAttemptState(email: string) {
+  const key = normalizeEmail(email);
+  const state = loginAttempts.get(key);
+
+  if (!state) {
+    return null;
+  }
+
+  if (state.lockedUntil && state.lockedUntil <= Date.now()) {
+    loginAttempts.delete(key);
+    return null;
+  }
+
+  return state;
+}
+
+function assertLoginAllowed(email: string) {
+  const state = getLoginAttemptState(email);
+  if (state?.lockedUntil && state.lockedUntil > Date.now()) {
+    const remainingMinutes = Math.ceil((state.lockedUntil - Date.now()) / 60000);
+    throw new AppError(
+      `Too many failed login attempts. Please try again in ${remainingMinutes} minute${remainingMinutes === 1 ? "" : "s"}.`,
+      429,
+    );
+  }
+}
+
+function recordFailedLogin(email: string) {
+  const key = normalizeEmail(email);
+  const current = getLoginAttemptState(email);
+  const failedAttempts = (current?.failedAttempts ?? 0) + 1;
+  const lockedUntil = failedAttempts >= MAX_LOGIN_ATTEMPTS ? Date.now() + LOGIN_LOCKOUT_MS : 0;
+
+  loginAttempts.set(key, {
+    failedAttempts,
+    lockedUntil,
+  });
+}
+
+function clearFailedLogins(email: string) {
+  loginAttempts.delete(normalizeEmail(email));
+}
+
 export async function login(email: string, password: string) {
   if (!email || !password) {
     throw new AppError("Email and password are required.", 400);
   }
 
-  if (!email.endsWith(env.allowedEmailDomain)) {
+  const normalizedEmail = normalizeEmail(email);
+
+  if (!normalizedEmail.endsWith(env.allowedEmailDomain)) {
     throw new AppError(`Only ${env.allowedEmailDomain} emails are allowed.`, 400);
   }
 
-  const user = await findUserForLogin(email);
+  assertLoginAllowed(normalizedEmail);
+
+  const user = await findUserForLogin(normalizedEmail);
   if (!user || user.password !== password) {
+    recordFailedLogin(normalizedEmail);
     throw new AppError("Invalid email or password.", 401);
   }
 
   if (user.status !== "active") {
     throw new AppError("Your account is not active yet.", 403);
   }
+
+  clearFailedLogins(normalizedEmail);
 
   return {
     user: {
@@ -59,7 +124,9 @@ export async function registerApplicant(input: RegisterApplicantInput) {
     throw new AppError("Please complete the onboarding form before submitting.", 400);
   }
 
-  if (!input.email.endsWith(env.allowedEmailDomain)) {
+  const normalizedEmail = normalizeEmail(input.email);
+
+  if (!normalizedEmail.endsWith(env.allowedEmailDomain)) {
     throw new AppError(`Only ${env.allowedEmailDomain} emails are allowed.`, 400);
   }
 
@@ -67,7 +134,7 @@ export async function registerApplicant(input: RegisterApplicantInput) {
     await pool.query("BEGIN");
     const userId = await createPendingUser({
       name: input.name.trim(),
-      email: input.email,
+      email: normalizedEmail,
       password: input.password,
       role: input.role,
       location: input.location.trim(),
