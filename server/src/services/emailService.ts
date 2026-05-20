@@ -44,7 +44,7 @@ Your skills, passion, and willingness to grow align with the values and mission 
 
 You may now access the official Spade Portal using the link below:
 
-https://spade-website-frontend.onrender.com
+https://spade-website-frontend.onrender.com/#/dashboard
 
 Please stay updated through our official communication channels for announcements, onboarding schedules, meetings, and upcoming events.
 
