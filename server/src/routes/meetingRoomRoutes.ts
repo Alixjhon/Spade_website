@@ -16,6 +16,7 @@ import {
   getPersistentMeetingRoomAttendance,
   listPersistentMeetingRooms,
 } from "../services/meetingRoomPersistenceService.js";
+import { notifyActiveUsersMeetingStarted } from "../services/notificationService.js";
 
 export const meetingRoomRouter = Router();
 
@@ -30,6 +31,12 @@ meetingRoomRouter.post(
     const room = await createPersistentMeetingRoom({
       title: String(req.body.title || ""),
       hostName: String(req.body.hostName || ""),
+    });
+
+    await notifyActiveUsersMeetingStarted({
+      roomId: room.roomId,
+      title: room.title,
+      hostName: room.hostName,
     });
 
     res.status(201).json({ room });

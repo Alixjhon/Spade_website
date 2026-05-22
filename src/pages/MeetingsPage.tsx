@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
+  Maximize2,
   Mic,
   MicOff,
   Monitor,
@@ -30,6 +31,7 @@ type RemotePeerState = {
   name: string;
   joinedAt: number;
   stream: MediaStream | null;
+  screenStream: MediaStream | null;
   connectionState: string;
 };
 
@@ -37,8 +39,25 @@ type PeerConnectionEntry = {
   peerId: string;
   connection: RTCPeerConnection;
   remoteStream: MediaStream;
+  remoteScreenStream: MediaStream;
+  remoteTrackStreamIds: Map<string, string>;
+  screenSenders: RTCRtpSender[];
   hasSentOffer: boolean;
   pendingIceCandidates: RTCIceCandidateInit[];
+};
+
+type ScreenShareRequest = {
+  peerId: string;
+  name: string;
+};
+
+type ScreenShareResponsePayload = {
+  allowed?: boolean;
+};
+
+type ScreenShareStartedPayload = {
+  streamId?: string;
+  presenterName?: string;
 };
 
 function buildPeerId() {
@@ -65,13 +84,16 @@ function VideoTile({
   muted = false,
   highlighted = false,
   presentation = false,
+  allowFullscreen = false,
 }: {
   label: string;
   stream: MediaStream | null;
   muted?: boolean;
   highlighted?: boolean;
   presentation?: boolean;
+  allowFullscreen?: boolean;
 }) {
+  const tileRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
@@ -80,10 +102,30 @@ function VideoTile({
     }
   }, [stream]);
 
+  async function openFullscreen() {
+    const tile = tileRef.current;
+    if (!tile) {
+      return;
+    }
+
+    if (tile.requestFullscreen) {
+      await tile.requestFullscreen().catch(() => undefined);
+      return;
+    }
+
+    const video = videoRef.current as HTMLVideoElement & {
+      webkitEnterFullscreen?: () => void;
+    };
+    video?.webkitEnterFullscreen?.();
+  }
+
   return (
     <div
+      ref={tileRef}
       className={`relative overflow-hidden rounded-xl border bg-foreground/5 ${
-        presentation ? "aspect-[16/8] min-h-[360px]" : "aspect-video"
+        presentation
+          ? "aspect-video min-h-[180px] max-h-[calc(100svh-12rem)] sm:min-h-[280px] lg:min-h-[360px]"
+          : "aspect-video"
       } ${highlighted ? "border-primary/30 ring-2 ring-primary" : "border-border/50"}`}
     >
       {stream ? (
@@ -107,6 +149,20 @@ function VideoTile({
       <div className="absolute bottom-2 left-2 rounded bg-black/60 px-2 py-0.5 text-xs text-white">
         {label}
       </div>
+
+      {allowFullscreen && stream ? (
+        <Button
+          type="button"
+          variant="secondary"
+          size="icon"
+          aria-label="Fullscreen shared screen"
+          title="Fullscreen shared screen"
+          className="absolute right-2 top-2 h-9 w-9 bg-black/60 text-white hover:bg-black/75 hover:text-white"
+          onClick={() => void openFullscreen()}
+        >
+          <Maximize2 className="h-4 w-4" />
+        </Button>
+      ) : null}
     </div>
   );
 }
@@ -183,6 +239,12 @@ const MeetingsPage = () => {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [screenSharePermission, setScreenSharePermission] = useState(false);
+  const [screenShareRequestStatus, setScreenShareRequestStatus] = useState<
+    "idle" | "pending" | "approved" | "rejected"
+  >("idle");
+  const [pendingScreenShareRequest, setPendingScreenShareRequest] =
+    useState<ScreenShareRequest | null>(null);
   const [remotePeers, setRemotePeers] = useState<RemotePeerState[]>([]);
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [roomError, setRoomError] = useState<string | null>(null);
@@ -204,7 +266,23 @@ const MeetingsPage = () => {
   const peerIdRef = useRef("");
   const joinedAtRef = useRef(0);
   const localStreamRef = useRef<MediaStream | null>(null);
+  const screenStreamRef = useRef<MediaStream | null>(null);
   const activeRoomRef = useRef("");
+  const isRoomHostRef = useRef(false);
+  const userNameRef = useRef("Presenter");
+  const remotePeerMetaRef = useRef(new Map<string, { name: string; joinedAt: number }>());
+  const expectedScreenStreamIdsRef = useRef(new Map<string, Set<string>>());
+
+  const isRoomHost = Boolean(
+    roomInfo?.hostName &&
+      user?.name &&
+      roomInfo.hostName.trim().toLowerCase() === user.name.trim().toLowerCase(),
+  );
+
+  useEffect(() => {
+    isRoomHostRef.current = isRoomHost;
+    userNameRef.current = user?.name ?? "Presenter";
+  }, [isRoomHost, user?.name]);
 
   const participants = useMemo(
     () => [
@@ -222,7 +300,13 @@ const MeetingsPage = () => {
     [micOn, remotePeers, user?.name],
   );
 
+  const remotePresentation = useMemo(
+    () => remotePeers.find((peer) => peer.screenStream),
+    [remotePeers],
+  );
+
   useEffect(() => {
+    screenStreamRef.current = screenStream;
     return () => {
       screenStream?.getTracks().forEach((track) => track.stop());
     };
@@ -236,73 +320,6 @@ const MeetingsPage = () => {
       next.delete("room");
     }
     setSearchParams(next, { replace: true });
-  }
-
-  async function toggleScreenShare() {
-    if (screenStream) {
-      screenStream.getTracks().forEach((track) => track.stop());
-      setScreenStream(null);
-      setIsScreenSharing(false);
-      return;
-    }
-
-    if (!navigator.mediaDevices?.getDisplayMedia) {
-      setMediaError("This browser does not support screen sharing.");
-      return;
-    }
-
-    try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: true,
-        audio: true,
-      });
-
-      stream.getVideoTracks()[0]?.addEventListener("ended", () => {
-        setScreenStream(null);
-        setIsScreenSharing(false);
-      });
-
-      setScreenStream(stream);
-      setIsScreenSharing(true);
-    } catch {
-      setIsScreenSharing(false);
-    }
-  }
-
-  function updateRemotePeer(
-    peerId: string,
-    next: Partial<RemotePeerState> & Pick<RemotePeerState, "peerId">,
-  ) {
-    setRemotePeers((current) => {
-      const existing = current.find((peer) => peer.peerId === peerId);
-      if (!existing) {
-        return [
-          ...current,
-          {
-            peerId,
-            name: next.name ?? "Guest",
-            joinedAt: next.joinedAt ?? Date.now(),
-            stream: next.stream ?? null,
-            connectionState: next.connectionState ?? "connecting",
-          },
-        ].sort((a, b) => a.joinedAt - b.joinedAt);
-      }
-
-      return current
-        .map((peer) => (peer.peerId === peerId ? { ...peer, ...next } : peer))
-        .sort((a, b) => a.joinedAt - b.joinedAt);
-    });
-  }
-
-  function removeRemotePeer(peerId: string) {
-    const entry = peersRef.current.get(peerId);
-    if (entry) {
-      entry.connection.close();
-      peersRef.current.delete(peerId);
-    }
-    setRemotePeers((current) =>
-      current.filter((peer) => peer.peerId !== peerId),
-    );
   }
 
   async function sendSignal(
@@ -322,6 +339,219 @@ const MeetingsPage = () => {
     });
   }
 
+  async function broadcastSignal(
+    type: MeetingRoomSignal["type"],
+    payload: unknown,
+  ) {
+    await Promise.all(
+      Array.from(peersRef.current.keys()).map((peerId) =>
+        sendSignal(peerId, type, payload),
+      ),
+    );
+  }
+
+  async function renegotiatePeer(entry: PeerConnectionEntry) {
+    if (entry.connection.signalingState === "closed") {
+      return;
+    }
+
+    const offer = await entry.connection.createOffer();
+    await entry.connection.setLocalDescription(offer);
+    await sendSignal(entry.peerId, "offer", offer);
+  }
+
+  async function stopScreenShare(notifyPeers = true) {
+    const currentScreenStream = screenStreamRef.current;
+
+    peersRef.current.forEach((entry) => {
+      entry.screenSenders.forEach((sender) => {
+        if (entry.connection.signalingState !== "closed") {
+          entry.connection.removeTrack(sender);
+        }
+      });
+      entry.screenSenders = [];
+      void renegotiatePeer(entry);
+    });
+
+    currentScreenStream?.getTracks().forEach((track) => track.stop());
+    screenStreamRef.current = null;
+    setScreenStream(null);
+    setIsScreenSharing(false);
+
+    if (notifyPeers) {
+      await broadcastSignal("screen-share-stopped", {});
+    }
+  }
+
+  async function startScreenShare() {
+    if (!navigator.mediaDevices?.getDisplayMedia) {
+      setMediaError("This browser does not support screen sharing.");
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: true,
+      });
+
+      stream.getVideoTracks()[0]?.addEventListener("ended", () => {
+        void stopScreenShare();
+      });
+
+      screenStreamRef.current = stream;
+      setScreenStream(stream);
+      setIsScreenSharing(true);
+      setScreenShareRequestStatus("idle");
+
+      const payload: ScreenShareStartedPayload = {
+        streamId: stream.id,
+        presenterName: userNameRef.current,
+      };
+
+      await broadcastSignal("screen-share-started", payload);
+
+      peersRef.current.forEach((entry) => {
+        entry.screenSenders.forEach((sender) => {
+          if (entry.connection.signalingState !== "closed") {
+            entry.connection.removeTrack(sender);
+          }
+        });
+        entry.screenSenders = stream.getTracks().map((track) =>
+          entry.connection.addTrack(track, stream),
+        );
+        void renegotiatePeer(entry);
+      });
+    } catch {
+      setIsScreenSharing(false);
+    }
+  }
+
+  async function requestScreenSharePermission() {
+    const hostPeer = remotePeers.find(
+      (peer) =>
+        roomInfo?.hostName &&
+        peer.name.trim().toLowerCase() === roomInfo.hostName.trim().toLowerCase(),
+    );
+
+    if (!hostPeer) {
+      setMediaError("The host must be connected before you can request screen sharing.");
+      return;
+    }
+
+    setScreenShareRequestStatus("pending");
+    await sendSignal(hostPeer.peerId, "screen-share-request", {
+      name: user?.name ?? "Guest",
+    });
+  }
+
+  async function respondToScreenShareRequest(allowed: boolean) {
+    if (!pendingScreenShareRequest) {
+      return;
+    }
+
+    await sendSignal(pendingScreenShareRequest.peerId, "screen-share-response", {
+      allowed,
+    } satisfies ScreenShareResponsePayload);
+    setPendingScreenShareRequest(null);
+  }
+
+  async function toggleScreenShare() {
+    if (screenStreamRef.current) {
+      await stopScreenShare();
+      return;
+    }
+
+    if (isRoomHost || screenSharePermission) {
+      await startScreenShare();
+      return;
+    }
+
+    await requestScreenSharePermission();
+  }
+
+  function updateRemotePeer(
+    peerId: string,
+    next: Partial<RemotePeerState> & Pick<RemotePeerState, "peerId">,
+  ) {
+    if (next.name || next.joinedAt) {
+      const current = remotePeerMetaRef.current.get(peerId);
+      remotePeerMetaRef.current.set(peerId, {
+        name: next.name ?? current?.name ?? "Guest",
+        joinedAt: next.joinedAt ?? current?.joinedAt ?? Date.now(),
+      });
+    }
+
+    setRemotePeers((current) => {
+      const existing = current.find((peer) => peer.peerId === peerId);
+      if (!existing) {
+        return [
+          ...current,
+          {
+            peerId,
+            name: next.name ?? "Guest",
+            joinedAt: next.joinedAt ?? Date.now(),
+            stream: next.stream ?? null,
+            screenStream: next.screenStream ?? null,
+            connectionState: next.connectionState ?? "connecting",
+          },
+        ].sort((a, b) => a.joinedAt - b.joinedAt);
+      }
+
+      return current
+        .map((peer) => (peer.peerId === peerId ? { ...peer, ...next } : peer))
+        .sort((a, b) => a.joinedAt - b.joinedAt);
+    });
+  }
+
+  function removeRemotePeer(peerId: string) {
+    const entry = peersRef.current.get(peerId);
+    if (entry) {
+      entry.connection.close();
+      peersRef.current.delete(peerId);
+    }
+    expectedScreenStreamIdsRef.current.delete(peerId);
+    remotePeerMetaRef.current.delete(peerId);
+    setPendingScreenShareRequest((current) =>
+      current?.peerId === peerId ? null : current,
+    );
+    setRemotePeers((current) =>
+      current.filter((peer) => peer.peerId !== peerId),
+    );
+  }
+
+  function removeTrackFromStream(stream: MediaStream, trackId: string) {
+    const track = stream.getTracks().find((candidate) => candidate.id === trackId);
+    if (track) {
+      stream.removeTrack(track);
+    }
+  }
+
+  function moveExpectedScreenTracks(entry: PeerConnectionEntry, streamId: string) {
+    entry.remoteStream.getTracks().forEach((track) => {
+      if (entry.remoteTrackStreamIds.get(track.id) !== streamId) {
+        return;
+      }
+
+      entry.remoteStream.removeTrack(track);
+      if (!entry.remoteScreenStream.getTracks().some((existing) => existing.id === track.id)) {
+        entry.remoteScreenStream.addTrack(track);
+      }
+    });
+
+    updateRemotePeer(entry.peerId, {
+      peerId: entry.peerId,
+      name: remotePeerMetaRef.current.get(entry.peerId)?.name ?? "Guest",
+      joinedAt: remotePeerMetaRef.current.get(entry.peerId)?.joinedAt ?? Date.now(),
+      stream: entry.remoteStream,
+      screenStream:
+        entry.remoteScreenStream.getTracks().length > 0
+          ? entry.remoteScreenStream
+          : null,
+      connectionState: entry.connection.connectionState,
+    });
+  }
+
   async function ensurePeerConnection(
     peer: MeetingRoomPeer,
     shouldInitiate: boolean,
@@ -338,16 +568,43 @@ const MeetingsPage = () => {
 
     const connection = new RTCPeerConnection({ iceServers: ICE_SERVERS });
     const remoteStream = new MediaStream();
+    const remoteScreenStream = new MediaStream();
+    const remoteTrackStreamIds = new Map<string, string>();
 
     connection.ontrack = (event) => {
-      event.streams[0]?.getTracks().forEach((track) => {
-        remoteStream.addTrack(track);
+      const incomingStream = event.streams[0];
+      const expectedScreenIds = expectedScreenStreamIdsRef.current.get(peer.peerId);
+      const isScreenTrack = Boolean(
+        incomingStream?.id && expectedScreenIds?.has(incomingStream.id),
+      );
+      const targetStream = isScreenTrack ? remoteScreenStream : remoteStream;
+
+      (incomingStream?.getTracks() ?? [event.track]).forEach((track) => {
+        if (incomingStream?.id) {
+          remoteTrackStreamIds.set(track.id, incomingStream.id);
+        }
+        removeTrackFromStream(isScreenTrack ? remoteStream : remoteScreenStream, track.id);
+        if (!targetStream.getTracks().some((existing) => existing.id === track.id)) {
+          targetStream.addTrack(track);
+        }
+        track.addEventListener("ended", () => {
+          if (isScreenTrack) {
+            updateRemotePeer(peer.peerId, {
+              peerId: peer.peerId,
+              name: peer.name,
+              joinedAt: peer.joinedAt,
+              screenStream: null,
+              connectionState: connection.connectionState,
+            });
+          }
+        });
       });
       updateRemotePeer(peer.peerId, {
         peerId: peer.peerId,
         name: peer.name,
         joinedAt: peer.joinedAt,
         stream: remoteStream,
+        screenStream: remoteScreenStream.getTracks().length > 0 ? remoteScreenStream : null,
         connectionState: connection.connectionState,
       });
     };
@@ -364,6 +621,7 @@ const MeetingsPage = () => {
         name: peer.name,
         joinedAt: peer.joinedAt,
         stream: remoteStream,
+        screenStream: remoteScreenStream.getTracks().length > 0 ? remoteScreenStream : null,
         connectionState: connection.connectionState,
       });
 
@@ -385,16 +643,30 @@ const MeetingsPage = () => {
       peerId: peer.peerId,
       connection,
       remoteStream,
+      remoteScreenStream,
+      remoteTrackStreamIds,
+      screenSenders: [],
       hasSentOffer: false,
       pendingIceCandidates: [],
     };
 
     peersRef.current.set(peer.peerId, entry);
+    const currentScreenStream = screenStreamRef.current;
+    if (currentScreenStream) {
+      await sendSignal(peer.peerId, "screen-share-started", {
+        streamId: currentScreenStream.id,
+        presenterName: userNameRef.current,
+      } satisfies ScreenShareStartedPayload);
+      entry.screenSenders = currentScreenStream.getTracks().map((track) =>
+        connection.addTrack(track, currentScreenStream),
+      );
+    }
     updateRemotePeer(peer.peerId, {
       peerId: peer.peerId,
       name: peer.name,
       joinedAt: peer.joinedAt,
       stream: remoteStream,
+      screenStream: remoteScreenStream.getTracks().length > 0 ? remoteScreenStream : null,
       connectionState: connection.connectionState,
     });
 
@@ -428,14 +700,87 @@ const MeetingsPage = () => {
   }
 
   async function handleSignal(signal: MeetingRoomSignal) {
-    const existingPeer = remotePeers.find(
-      (peer) => peer.peerId === signal.fromPeerId,
-    );
+    const knownPeer = remotePeerMetaRef.current.get(signal.fromPeerId);
+
+    if (signal.type === "screen-share-request") {
+      if (!isRoomHostRef.current) {
+        return;
+      }
+
+      const payload = signal.payload as { name?: string };
+      setPendingScreenShareRequest({
+        peerId: signal.fromPeerId,
+        name: payload.name ?? knownPeer?.name ?? "Guest",
+      });
+      return;
+    }
+
+    if (signal.type === "screen-share-response") {
+      const payload = signal.payload as ScreenShareResponsePayload;
+      if (payload.allowed) {
+        setScreenSharePermission(true);
+        setScreenShareRequestStatus("approved");
+        await startScreenShare();
+      } else {
+        setScreenSharePermission(false);
+        setScreenShareRequestStatus("rejected");
+      }
+      return;
+    }
+
+    if (signal.type === "screen-share-started") {
+      const payload = signal.payload as ScreenShareStartedPayload;
+      const entry = peersRef.current.get(signal.fromPeerId);
+      entry?.remoteScreenStream.getTracks().forEach((track) => {
+        entry.remoteScreenStream.removeTrack(track);
+      });
+      if (payload.streamId) {
+        const ids =
+          expectedScreenStreamIdsRef.current.get(signal.fromPeerId) ??
+          new Set<string>();
+        ids.add(payload.streamId);
+        expectedScreenStreamIdsRef.current.set(signal.fromPeerId, ids);
+        if (entry) {
+          moveExpectedScreenTracks(entry, payload.streamId);
+        }
+      }
+      updateRemotePeer(signal.fromPeerId, {
+        peerId: signal.fromPeerId,
+        name: payload.presenterName ?? knownPeer?.name ?? "Presenter",
+        joinedAt: knownPeer?.joinedAt ?? Date.now(),
+        ...(entry
+          ? {
+              stream: entry.remoteStream,
+              screenStream:
+                entry.remoteScreenStream.getTracks().length > 0
+                  ? entry.remoteScreenStream
+                  : null,
+            }
+          : {}),
+      });
+      return;
+    }
+
+    if (signal.type === "screen-share-stopped") {
+      expectedScreenStreamIdsRef.current.delete(signal.fromPeerId);
+      const entry = peersRef.current.get(signal.fromPeerId);
+      entry?.remoteScreenStream.getTracks().forEach((track) => {
+        entry.remoteScreenStream.removeTrack(track);
+      });
+      updateRemotePeer(signal.fromPeerId, {
+        peerId: signal.fromPeerId,
+        name: knownPeer?.name ?? "Guest",
+        joinedAt: knownPeer?.joinedAt ?? Date.now(),
+        screenStream: null,
+      });
+      return;
+    }
+
     const entry = await ensurePeerConnection(
       {
         peerId: signal.fromPeerId,
-        name: existingPeer?.name ?? "Guest",
-        joinedAt: existingPeer?.joinedAt ?? Date.now(),
+        name: knownPeer?.name ?? "Guest",
+        joinedAt: knownPeer?.joinedAt ?? Date.now(),
       },
       false,
     );
@@ -478,14 +823,20 @@ const MeetingsPage = () => {
     const currentRoomId = activeRoomRef.current;
     const currentPeerId = peerIdRef.current;
 
-    screenStream?.getTracks().forEach((track) => track.stop());
+    screenStreamRef.current?.getTracks().forEach((track) => track.stop());
+    screenStreamRef.current = null;
     setScreenStream(null);
     setIsScreenSharing(false);
+    setScreenSharePermission(false);
+    setScreenShareRequestStatus("idle");
+    setPendingScreenShareRequest(null);
 
     peersRef.current.forEach((entry) => {
       entry.connection.close();
     });
     peersRef.current.clear();
+    remotePeerMetaRef.current.clear();
+    expectedScreenStreamIdsRef.current.clear();
     setRemotePeers([]);
     setCallState("ended");
     setSelfJoinedAt(null);
@@ -872,7 +1223,7 @@ const MeetingsPage = () => {
             <p className="mt-2 text-sm text-destructive">{roomError}</p>
           ) : null}
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => void copyInvite()}>
             Copy Invite Link
           </Button>
@@ -887,26 +1238,37 @@ const MeetingsPage = () => {
         </div>
       </div>
 
-      <div className="flex flex-col gap-4 lg:flex-row">
-        <div className="flex-1">
-          <div className="glass-card-elevated rounded-2xl p-4">
+      <div className="flex flex-col gap-4 xl:flex-row">
+        <div className="min-w-0 flex-1">
+          <div className="glass-card-elevated rounded-xl p-2 sm:rounded-2xl sm:p-4">
             {screenStream ? (
-              <div className="mb-4 rounded-2xl border border-primary/20 bg-primary/5 p-2">
+              <div className="mb-3 rounded-xl border border-primary/20 bg-primary/5 p-1 sm:mb-4 sm:rounded-2xl sm:p-2">
                 <VideoTile
                   label={`${user?.name ?? "You"} is presenting`}
                   stream={screenStream}
                   muted
                   highlighted
                   presentation
+                  allowFullscreen
+                />
+              </div>
+            ) : remotePresentation?.screenStream ? (
+              <div className="mb-3 rounded-xl border border-primary/20 bg-primary/5 p-1 sm:mb-4 sm:rounded-2xl sm:p-2">
+                <VideoTile
+                  label={`${remotePresentation.name} is presenting`}
+                  stream={remotePresentation.screenStream}
+                  highlighted
+                  presentation
+                  allowFullscreen
                 />
               </div>
             ) : null}
 
             <div
               className={
-                screenStream
-                  ? "grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-4"
-                  : "grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3"
+                screenStream || remotePresentation?.screenStream
+                  ? "grid grid-cols-1 gap-2 sm:gap-3 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
+                  : "grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 xl:grid-cols-3"
               }
             >
               <VideoTile
@@ -929,11 +1291,11 @@ const MeetingsPage = () => {
             </div>
           </div>
 
-          <div className="mt-4 flex items-center justify-center gap-3">
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
             <Button
               variant="outline"
               size="icon"
-              className={`h-12 w-12 rounded-full ${!micOn ? "border-destructive bg-destructive/10 text-destructive" : ""}`}
+              className={`h-11 w-11 rounded-full sm:h-12 sm:w-12 ${!micOn ? "border-destructive bg-destructive/10 text-destructive" : ""}`}
               onClick={() => setMicOn((value) => !value)}
             >
               {micOn ? (
@@ -946,7 +1308,7 @@ const MeetingsPage = () => {
             <Button
               variant="outline"
               size="icon"
-              className={`h-12 w-12 rounded-full ${!videoOn ? "border-destructive bg-destructive/10 text-destructive" : ""}`}
+              className={`h-11 w-11 rounded-full sm:h-12 sm:w-12 ${!videoOn ? "border-destructive bg-destructive/10 text-destructive" : ""}`}
               onClick={() => setVideoOn((value) => !value)}
             >
               {videoOn ? (
@@ -959,11 +1321,14 @@ const MeetingsPage = () => {
             <Button
               variant="outline"
               size="icon"
-              className={`h-12 w-12 rounded-full ${
+              className={`h-11 w-11 rounded-full sm:h-12 sm:w-12 ${
                 isScreenSharing
                   ? "border-primary bg-primary/10 text-primary ring-2 ring-primary"
+                  : screenShareRequestStatus === "pending"
+                    ? "border-primary/60 bg-primary/5 text-primary"
                   : ""
               }`}
+              disabled={screenShareRequestStatus === "pending"}
               onClick={() => void toggleScreenShare()}
             >
               <Monitor className="h-5 w-5" />
@@ -972,7 +1337,7 @@ const MeetingsPage = () => {
             <Button
               variant="outline"
               size="icon"
-              className="h-12 w-12 rounded-full"
+              className="h-11 w-11 rounded-full sm:h-12 sm:w-12"
               onClick={() => setShowParticipants((value) => !value)}
             >
               <Users className="h-5 w-5" />
@@ -981,14 +1346,14 @@ const MeetingsPage = () => {
             <Button
               variant="outline"
               size="icon"
-              className="h-12 w-12 rounded-full"
+              className="h-11 w-11 rounded-full sm:h-12 sm:w-12"
             >
               <MessageSquare className="h-5 w-5" />
             </Button>
 
             <Button
               size="icon"
-              className="h-12 w-12 rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="h-11 w-11 rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90 sm:h-12 sm:w-12"
               onClick={() => {
                 void leaveCurrentCall(true);
               }}
@@ -996,10 +1361,20 @@ const MeetingsPage = () => {
               <PhoneOff className="h-5 w-5" />
             </Button>
           </div>
+
+          {screenShareRequestStatus !== "idle" && !isScreenSharing ? (
+            <p className="mt-2 text-center text-sm text-muted-foreground">
+              {screenShareRequestStatus === "pending"
+                ? "Waiting for the host to approve screen sharing."
+                : screenShareRequestStatus === "approved"
+                  ? "Screen sharing approved."
+                  : "The host rejected your screen sharing request."}
+            </p>
+          ) : null}
         </div>
 
         {showParticipants && (
-          <div className="glass-card w-full animate-scale-in p-4 lg:w-72">
+          <div className="glass-card w-full animate-scale-in p-4 xl:w-72">
             <h3 className="mb-3 font-semibold text-foreground">
               Participants ({participants.length})
             </h3>
@@ -1026,6 +1401,25 @@ const MeetingsPage = () => {
           </div>
         )}
       </div>
+
+      {isRoomHost && pendingScreenShareRequest ? (
+        <div className="fixed bottom-6 right-6 z-50 w-[min(22rem,calc(100vw-3rem))] rounded-xl border border-border bg-background p-4 shadow-xl">
+          <p className="text-sm font-medium text-foreground">
+            {pendingScreenShareRequest.name} wants to share their screen.
+          </p>
+          <div className="mt-4 flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => void respondToScreenShareRequest(false)}
+            >
+              Reject
+            </Button>
+            <Button onClick={() => void respondToScreenShareRequest(true)}>
+              Accept
+            </Button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };

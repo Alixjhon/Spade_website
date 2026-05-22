@@ -1,5 +1,5 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { ChangeEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   SidebarProvider,
   SidebarTrigger,
@@ -125,6 +125,7 @@ const DashboardLayout = () => {
   const [yearLevel, setYearLevel] = useState("");
   const [contactNumber, setContactNumber] = useState("");
   const [profilePictureUrl, setProfilePictureUrl] = useState("");
+  const notifiedIdsRef = useRef(new Set<number>());
   const roleLabel = user ? ROLES.find((r) => r.id === user.role)?.label ?? user.role : "";
   const currentInitials = getInitials(user?.name);
   const { data: dashboardData } = useQuery({
@@ -132,6 +133,14 @@ const DashboardLayout = () => {
     queryFn: () => api.getDashboard(user!.email),
     enabled: Boolean(user?.email),
   });
+  const { data: notificationsData } = useQuery({
+    queryKey: ["notifications", user?.email],
+    queryFn: api.getUnreadNotifications,
+    enabled: Boolean(user?.email),
+    refetchInterval: 10_000,
+  });
+
+  const unreadNotifications = notificationsData?.notifications ?? [];
 
   useEffect(() => {
     setName(user?.name || "");
@@ -158,6 +167,55 @@ const DashboardLayout = () => {
       updateUser(nextUser);
     }
   }, [dashboardData?.user, updateUser, user]);
+
+  useEffect(() => {
+    if (!user || unreadNotifications.length === 0) return;
+
+    for (const notification of unreadNotifications) {
+      if (notifiedIdsRef.current.has(notification.id)) {
+        continue;
+      }
+
+      notifiedIdsRef.current.add(notification.id);
+
+      const openNotification = () => {
+        if (notification.actionUrl) {
+          navigate(notification.actionUrl);
+        }
+      };
+
+      toast(notification.title, {
+        description: notification.message,
+        action: notification.actionUrl
+          ? {
+              label: "Join",
+              onClick: openNotification,
+            }
+          : undefined,
+      });
+
+      if ("Notification" in window && Notification.permission === "granted") {
+        const browserNotification = new Notification(notification.title, {
+          body: notification.message,
+          tag: `spade-${notification.id}`,
+        });
+        browserNotification.onclick = () => {
+          window.focus();
+          openNotification();
+          browserNotification.close();
+        };
+      }
+
+      void api
+        .markNotificationRead(notification.id)
+        .then(() =>
+          queryClient.invalidateQueries({
+            queryKey: ["notifications", user.email],
+          }),
+        )
+        .catch(() => undefined);
+    }
+  }, [navigate, queryClient, unreadNotifications, user]);
 
   const profileMutation = useMutation({
     mutationFn: api.updateProfile,
@@ -210,6 +268,28 @@ const DashboardLayout = () => {
     });
   };
 
+  const handleNotificationsClick = async () => {
+    if (!("Notification" in window)) {
+      toast.info("Browser notifications are not supported here.");
+      return;
+    }
+
+    if (Notification.permission === "default") {
+      const permission = await Notification.requestPermission();
+      if (permission === "granted") {
+        toast.success("Meeting notifications enabled.");
+      }
+      return;
+    }
+
+    if (Notification.permission === "granted") {
+      toast.success("Meeting notifications are enabled.");
+      return;
+    }
+
+    toast.error("Notifications are blocked in your browser settings.");
+  };
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
@@ -225,9 +305,16 @@ const DashboardLayout = () => {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <Button variant="ghost" size="icon" className="relative rounded-xl">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative rounded-xl"
+                onClick={() => void handleNotificationsClick()}
+              >
                 <Bell className="w-5 h-5 text-muted-foreground" />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-destructive" />
+                {unreadNotifications.length > 0 ? (
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-destructive" />
+                ) : null}
               </Button>
               <div className="flex items-center gap-3 pl-3 border-l border-border/50">
                 <button

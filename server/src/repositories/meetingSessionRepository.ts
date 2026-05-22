@@ -13,7 +13,7 @@ export type MeetingSignalRecord = {
   room_code: string;
   from_peer_id: string;
   to_peer_id: string;
-  type: "offer" | "answer" | "ice-candidate";
+  type: string;
   payload: unknown;
   created_at: Date | string;
 };
@@ -76,7 +76,7 @@ export async function enqueueMeetingSignal(input: {
   roomCode: string;
   fromPeerId: string;
   toPeerId: string;
-  type: "offer" | "answer" | "ice-candidate";
+  type: string;
   payload: unknown;
 }) {
   const result = await pool.query<MeetingSignalRecord>(

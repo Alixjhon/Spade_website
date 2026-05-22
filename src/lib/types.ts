@@ -117,10 +117,26 @@ export interface MeetingRoomAttendanceEntry {
 
 export interface MeetingRoomSignal {
   id: string;
-  type: "offer" | "answer" | "ice-candidate";
+  type:
+    | "offer"
+    | "answer"
+    | "ice-candidate"
+    | "screen-share-request"
+    | "screen-share-response"
+    | "screen-share-started"
+    | "screen-share-stopped";
   fromPeerId: string;
   toPeerId: string;
   payload: unknown;
+  createdAt: number;
+}
+
+export interface AppNotification {
+  id: number;
+  type: string;
+  title: string;
+  message: string;
+  actionUrl: string;
   createdAt: number;
 }
 

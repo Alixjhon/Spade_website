@@ -120,6 +120,17 @@ export async function initializeDatabase(): Promise<void> {
       UNIQUE (room_code, user_email)
     );
 
+    CREATE TABLE IF NOT EXISTS notifications (
+      id SERIAL PRIMARY KEY,
+      user_email TEXT NOT NULL REFERENCES users(email) ON DELETE CASCADE,
+      type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      message TEXT NOT NULL,
+      action_url TEXT NOT NULL DEFAULT '',
+      read_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
     CREATE TABLE IF NOT EXISTS elections (
       id SERIAL PRIMARY KEY,
       election_year INTEGER NOT NULL UNIQUE,
@@ -189,6 +200,8 @@ export async function initializeDatabase(): Promise<void> {
     ALTER TABLE projects ADD COLUMN IF NOT EXISTS submitted_by_email TEXT NOT NULL DEFAULT '';
     ALTER TABLE meetings ADD COLUMN IF NOT EXISTS participants JSONB NOT NULL DEFAULT '[]'::jsonb;
     ALTER TABLE meetings ADD COLUMN IF NOT EXISTS scheduled_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+    CREATE INDEX IF NOT EXISTS notifications_user_email_read_created_idx
+    ON notifications (user_email, read_at, created_at DESC);
   `);
 
   await pool.query(`
@@ -240,6 +253,11 @@ export async function initializeDatabase(): Promise<void> {
     SELECT setval(
       pg_get_serial_sequence('meeting_room_attendance', 'id'),
       COALESCE((SELECT MAX(id) FROM meeting_room_attendance), 0) + 1,
+      false
+    );
+    SELECT setval(
+      pg_get_serial_sequence('notifications', 'id'),
+      COALESCE((SELECT MAX(id) FROM notifications), 0) + 1,
       false
     );
     SELECT setval(

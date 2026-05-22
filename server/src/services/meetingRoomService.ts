@@ -10,7 +10,14 @@ import {
 } from "../repositories/meetingSessionRepository.js";
 import { upsertMeetingAttendance } from "../repositories/meetingAttendanceRepository.js";
 
-type SignalType = "offer" | "answer" | "ice-candidate";
+type SignalType =
+  | "offer"
+  | "answer"
+  | "ice-candidate"
+  | "screen-share-request"
+  | "screen-share-response"
+  | "screen-share-started"
+  | "screen-share-stopped";
 
 function sanitizeRoomId(roomId: string) {
   return roomId.trim().toUpperCase();
@@ -30,7 +37,7 @@ function serializePeer(peer: {
 
 function serializeSignal(signal: {
   id: number;
-  type: SignalType;
+  type: string;
   from_peer_id: string;
   to_peer_id: string;
   payload: unknown;
@@ -38,7 +45,7 @@ function serializeSignal(signal: {
 }) {
   return {
     id: String(signal.id),
-    type: signal.type,
+    type: signal.type as SignalType,
     fromPeerId: signal.from_peer_id,
     toPeerId: signal.to_peer_id,
     payload: signal.payload,

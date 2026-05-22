@@ -6,6 +6,7 @@ import type {
   Election,
   EventItem,
   Meeting,
+  AppNotification,
   MeetingRoomAttendanceEntry,
   MeetingRoomInfo,
   MeetingRoomPeer,
@@ -266,6 +267,14 @@ export const api = {
     request<{ ok: boolean }>(`/api/meeting-rooms/${encodeURIComponent(roomId)}/leave`, {
       method: "POST",
       body: JSON.stringify({ peerId }),
+    }),
+
+  getUnreadNotifications: () =>
+    request<{ notifications: AppNotification[] }>("/api/notifications/unread"),
+
+  markNotificationRead: (id: number) =>
+    request<{ ok: boolean }>(`/api/notifications/${id}/read`, {
+      method: "POST",
     }),
 
   getElection: (email?: string) =>

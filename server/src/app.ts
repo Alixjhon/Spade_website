@@ -7,6 +7,7 @@ import { dashboardRouter } from "./routes/dashboardRoutes.js";
 import { electionRouter } from "./routes/electionRoutes.js";
 import { memberRouter } from "./routes/memberRoutes.js";
 import { meetingRoomRouter } from "./routes/meetingRoomRoutes.js";
+import { notificationRouter } from "./routes/notificationRoutes.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 
 export function createApp() {
@@ -26,6 +27,7 @@ export function createApp() {
   app.use("/api", contentRouter);
   app.use("/api/election", electionRouter);
   app.use("/api/meeting-rooms", meetingRoomRouter);
+  app.use("/api/notifications", notificationRouter);
 
   app.use(errorHandler);
 
