@@ -1,9 +1,16 @@
 import nodemailer from "nodemailer";
 import { env } from "../config/env.js";
+import { listActiveUsers } from "../repositories/userRepository.js";
 
 type ApplicantAcceptanceEmailInput = {
   name: string;
   email: string;
+};
+
+type MeetingStartedEmailInput = {
+  title: string;
+  roomId: string;
+  hostName: string;
 };
 
 function createTransporter() {
@@ -18,7 +25,7 @@ function createTransporter() {
     .map(([name]) => name);
 
   if (missingSettings.length > 0) {
-    console.warn(`Applicant acceptance email skipped. Missing SMTP settings: ${missingSettings.join(", ")}.`);
+    console.warn(`Email skipped. Missing SMTP settings: ${missingSettings.join(", ")}.`);
     return null;
   }
 
@@ -56,6 +63,26 @@ Best regards,
 Spade Organization Team`;
 }
 
+function buildMeetingStartedMessage(input: MeetingStartedEmailInput) {
+  const meetingLink = `${env.appBaseUrl.replace(/\/$/, "")}/#/dashboard/meetings?room=${encodeURIComponent(input.roomId)}`;
+
+  return `Dear SPADE Officers,
+
+Good day!
+
+The meeting for the SPADE Organization will officially begin shortly. Please click the link below to join the meeting room.
+
+Meeting Link: ${meetingLink}
+
+Your attendance and participation are highly appreciated. Please join on time and be prepared for the discussion.
+
+Thank you, and see you there!
+
+Best regards,
+${input.hostName}
+SPADE Organization`;
+}
+
 export async function sendApplicantAcceptanceEmail(input: ApplicantAcceptanceEmailInput) {
   const transporter = createTransporter();
 
@@ -68,5 +95,28 @@ export async function sendApplicantAcceptanceEmail(input: ApplicantAcceptanceEma
     to: input.email,
     subject: "Your Spade Organization Application Has Been Accepted",
     text: buildApplicantAcceptanceMessage(input.name),
+  });
+}
+
+export async function sendMeetingStartedEmailToActiveUsers(input: MeetingStartedEmailInput) {
+  const transporter = createTransporter();
+
+  if (!transporter) {
+    return;
+  }
+
+  const users = await listActiveUsers();
+  const recipients = users.map((user) => user.email).filter(Boolean);
+
+  if (recipients.length === 0) {
+    return;
+  }
+
+  await transporter.sendMail({
+    from: env.mailFrom,
+    to: env.mailFrom,
+    bcc: recipients,
+    subject: `SPADE Meeting Starting Soon: ${input.title}`,
+    text: buildMeetingStartedMessage(input),
   });
 }

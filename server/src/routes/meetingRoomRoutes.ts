@@ -17,6 +17,7 @@ import {
   listPersistentMeetingRooms,
 } from "../services/meetingRoomPersistenceService.js";
 import { notifyActiveUsersMeetingStarted } from "../services/notificationService.js";
+import { sendMeetingStartedEmailToActiveUsers } from "../services/emailService.js";
 
 export const meetingRoomRouter = Router();
 
@@ -37,6 +38,13 @@ meetingRoomRouter.post(
       roomId: room.roomId,
       title: room.title,
       hostName: room.hostName,
+    });
+    sendMeetingStartedEmailToActiveUsers({
+      roomId: room.roomId,
+      title: room.title,
+      hostName: room.hostName,
+    }).catch((error) => {
+      console.error("Failed to send meeting started email:", error);
     });
 
     res.status(201).json({ room });

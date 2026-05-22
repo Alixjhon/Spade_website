@@ -34,4 +34,5 @@ export const env = {
   smtpUser: optionalEnv("SMTP_USER"),
   smtpPass: optionalEnv("SMTP_PASS"),
   mailFrom: optionalEnv("MAIL_FROM") ?? optionalEnv("SMTP_USER"),
+  appBaseUrl: optionalEnv("APP_BASE_URL") ?? "https://spade-website-frontend.onrender.com",
 } as const;
