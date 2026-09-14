@@ -43,6 +43,9 @@ Backend:
 - `SMTP_USER`
 - `SMTP_PASS`
 - `MAIL_FROM`
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+- `GOOGLE_REDIRECT_URI` (for example, `https://your-backend.onrender.com/api/auth/google/callback`)
 
 These backend variables must still be configured on your hosting platform. GitHub Actions only validates the build; it does not provide runtime app secrets to your deployed services.
 

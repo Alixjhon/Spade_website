@@ -35,4 +35,7 @@ export const env = {
   smtpPass: optionalEnv("SMTP_PASS"),
   mailFrom: optionalEnv("MAIL_FROM") ?? optionalEnv("SMTP_USER"),
   appBaseUrl: optionalEnv("APP_BASE_URL") ?? "https://spade-website-frontend.onrender.com",
+  googleClientId: optionalEnv("GOOGLE_CLIENT_ID"),
+  googleClientSecret: optionalEnv("GOOGLE_CLIENT_SECRET"),
+  googleRedirectUri: optionalEnv("GOOGLE_REDIRECT_URI"),
 } as const;

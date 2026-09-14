@@ -35,6 +35,10 @@ export function clearAuthToken() {
   }
 }
 
+export function getGoogleLoginUrl() {
+  return `${API_BASE_URL}/api/auth/google`;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const token = getAuthToken();
 
@@ -71,6 +75,12 @@ export const api = {
     request<{ user: User; token: string }>("/api/auth/login", {
       method: "POST",
       body: JSON.stringify(payload),
+    }),
+
+  exchangeGoogleCode: (code: string) =>
+    request<{ user: User; token: string }>("/api/auth/google/exchange", {
+      method: "POST",
+      body: JSON.stringify({ code }),
     }),
 
   updateProfile: (payload: {

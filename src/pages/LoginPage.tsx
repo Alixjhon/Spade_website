@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, BadgeCheck, BriefcaseBusiness, ShieldCheck } from "lucide-react";
@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { APPLICANT_ROLES } from "@/lib/roles";
-import { api, setAuthToken } from "@/lib/api";
+import { api, getGoogleLoginUrl, setAuthToken } from "@/lib/api";
 import { useAuth } from "@/components/AuthProvider";
 import { toast } from "sonner";
 import loginBg from "@/assets/login-bg.png";
@@ -26,6 +26,21 @@ const LoginPage = () => {
   const [isRegister, setIsRegister] = useState(false);
   const navigate = useNavigate();
   const { signIn } = useAuth();
+
+  useEffect(() => {
+    const googleCode = new URLSearchParams(window.location.hash.split("?")[1] || "").get("googleCode");
+    if (!googleCode) return;
+
+    window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#/`);
+    api.exchangeGoogleCode(googleCode)
+      .then(({ user, token }) => {
+        setAuthToken(token);
+        signIn(user);
+        toast.success("Welcome back!");
+        navigate("/dashboard");
+      })
+      .catch((error: Error) => toast.error(error.message));
+  }, [navigate, signIn]);
 
   const title = isRegister ? "Apply to SPADES" : "Welcome Back";
   const description = isRegister
@@ -361,6 +376,32 @@ const LoginPage = () => {
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </form>
+
+              {!isRegister && (
+                <>
+                  <div className="my-6 flex items-center gap-3 text-xs text-muted-foreground">
+                    <div className="h-px flex-1 bg-border/70" />
+                    <span>OR</span>
+                    <div className="h-px flex-1 bg-border/70" />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => { window.location.href = getGoogleLoginUrl(); }}
+                    className="h-12 w-full rounded-2xl border-border/70 bg-white/80 text-base font-semibold shadow-sm transition hover:bg-white"
+                  >
+                    <img
+                      src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+                      alt=""
+                      className="mr-3 h-5 w-5"
+                      width={20}
+                      height={20}
+                    />
+                    Continue with Google
+                  </Button>
+                  <p className="mt-3 text-center text-xs text-muted-foreground">Only verified @aclcbukidnon.com accounts are allowed.</p>
+                </>
+              )}
 
               <div className="mt-8 flex flex-col gap-4 border-t border-border/60 pt-6 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
                 <p>{isRegister ? "Already have an account?" : "Want to join the organization?"}</p>

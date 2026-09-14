@@ -61,6 +61,27 @@ export async function findUserForLogin(email: string): Promise<(AuthenticatedUse
   return (result.rows[0] as (AuthenticatedUser & { password: string; status: string }) | undefined) ?? null;
 }
 
+export async function findUserForGoogleLogin(email: string): Promise<(AuthenticatedUser & { status: string }) | null> {
+  const result = await pool.query(
+    `SELECT
+       id,
+       name,
+       email,
+       role,
+       status,
+       location,
+       course,
+       year_level AS "yearLevel",
+       contact_number AS "contactNumber",
+       avatar_url AS "profilePictureUrl"
+     FROM users
+     WHERE email = $1
+     LIMIT 1`,
+    [email],
+  );
+  return (result.rows[0] as (AuthenticatedUser & { status: string }) | undefined) ?? null;
+}
+
 export async function findUserSummary(email: string): Promise<AuthenticatedUser | null> {
   const result = await pool.query(`${userProfileSelect} WHERE email = $1 LIMIT 1`, [email]);
   return (result.rows[0] as AuthenticatedUser | undefined) ?? null;

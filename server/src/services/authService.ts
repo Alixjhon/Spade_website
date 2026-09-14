@@ -4,7 +4,7 @@ import { AppError } from "../lib/appError.js";
 import { createAuthToken } from "../lib/authToken.js";
 import { mapApplicant } from "../mappers/applicantMapper.js";
 import { createActivity } from "../repositories/activityRepository.js";
-import { createPendingUser, findApplicantById, findUserForLogin, updateUserProfileByEmail } from "../repositories/userRepository.js";
+import { createPendingUser, findApplicantById, findUserForGoogleLogin, findUserForLogin, updateUserProfileByEmail } from "../repositories/userRepository.js";
 import type { RegisterApplicantInput, UpdateProfileInput } from "../types/domain.js";
 
 const MAX_LOGIN_ATTEMPTS = 10;
@@ -20,6 +20,11 @@ const loginAttempts = new Map<
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
+}
+
+function isAllowedEmail(email: string) {
+  const domain = env.allowedEmailDomain.replace(/^@/, "").toLowerCase();
+  return normalizeEmail(email).endsWith(`@${domain}`);
 }
 
 function getLoginAttemptState(email: string) {
@@ -72,7 +77,7 @@ export async function login(email: string, password: string) {
 
   const normalizedEmail = normalizeEmail(email);
 
-  if (!normalizedEmail.endsWith(env.allowedEmailDomain)) {
+  if (!isAllowedEmail(normalizedEmail)) {
     throw new AppError(`Only ${env.allowedEmailDomain} emails are allowed.`, 400);
   }
 
@@ -126,7 +131,7 @@ export async function registerApplicant(input: RegisterApplicantInput) {
 
   const normalizedEmail = normalizeEmail(input.email);
 
-  if (!normalizedEmail.endsWith(env.allowedEmailDomain)) {
+  if (!isAllowedEmail(normalizedEmail)) {
     throw new AppError(`Only ${env.allowedEmailDomain} emails are allowed.`, 400);
   }
 
@@ -183,4 +188,36 @@ export async function updateProfile(input: UpdateProfileInput) {
   }
 
   return updatedUser;
+}
+
+export async function loginWithGoogle(email: string, name: string, pictureUrl = "") {
+  const normalizedEmail = normalizeEmail(email);
+
+  if (!isAllowedEmail(normalizedEmail)) {
+    throw new AppError(`Only ${env.allowedEmailDomain} emails are allowed.`, 403);
+  }
+
+  const user = await findUserForGoogleLogin(normalizedEmail);
+  if (!user) {
+    throw new AppError("No account was found for this Google email. Use Apply to submit your application first.", 404);
+  }
+
+  if (user.status !== "active") {
+    throw new AppError("Your account is not active yet.", 403);
+  }
+
+  return {
+    user: {
+      id: user.id,
+      name: user.name || name,
+      email: user.email,
+      role: user.role,
+      location: user.location,
+      course: user.course,
+      yearLevel: user.yearLevel,
+      contactNumber: user.contactNumber,
+      profilePictureUrl: user.profilePictureUrl || pictureUrl,
+    },
+    token: createAuthToken({ email: user.email, role: user.role, name: user.name || name }),
+  };
 }
