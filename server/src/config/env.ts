@@ -12,6 +12,11 @@ function optionalEnv(name: string) {
   return process.env[name]?.trim() || undefined;
 }
 
+function optionalGoogleRedirectUri() {
+  const value = optionalEnv("GOOGLE_REDIRECT_URI");
+  return value?.replace(/\/callback2\/?$/, "/callback");
+}
+
 const port = Number(process.env.PORT);
 const smtpPort = optionalEnv("SMTP_PORT") ? Number(optionalEnv("SMTP_PORT")) : undefined;
 
@@ -37,5 +42,5 @@ export const env = {
   appBaseUrl: optionalEnv("APP_BASE_URL") ?? "https://spade-website-frontend.onrender.com",
   googleClientId: optionalEnv("GOOGLE_CLIENT_ID"),
   googleClientSecret: optionalEnv("GOOGLE_CLIENT_SECRET"),
-  googleRedirectUri: optionalEnv("GOOGLE_REDIRECT_URI"),
+  googleRedirectUri: optionalGoogleRedirectUri(),
 } as const;
