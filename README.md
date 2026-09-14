@@ -129,10 +129,10 @@ Frontend on Render:
    - `MAIL_FROM`
   - `GOOGLE_CLIENT_ID`
   - `GOOGLE_CLIENT_SECRET`
-  - `GOOGLE_REDIRECT_URI=https://spade-backend.onrender.com/api/auth/google/callback`
+  - `GOOGLE_REDIRECT_URI=https://spade-website-backend.onrender.com/api/auth/google/callback`
   - `APP_BASE_URL=https://spade-website-frontend.onrender.com`
 6. For the frontend service, set:
-  - `VITE_API_BASE_URL=https://spade-backend.onrender.com`
+  - `VITE_API_BASE_URL=https://spade-website-backend.onrender.com`
 7. Create the services and wait for the first deploy.
 
 ### Manual Render Setup

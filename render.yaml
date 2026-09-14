@@ -32,7 +32,7 @@ services:
       - key: GOOGLE_CLIENT_SECRET
         sync: false
       - key: GOOGLE_REDIRECT_URI
-        value: https://spade-backend.onrender.com/api/auth/google/callback
+        value: https://spade-website-backend.onrender.com/api/auth/google/callback
       - key: APP_BASE_URL
         value: https://spade-website-frontend.onrender.com
 
@@ -48,4 +48,4 @@ services:
       destination: /index.html  
     envVars:
       - key: VITE_API_BASE_URL
-        value: https://spade-backend.onrender.com
+        value: https://spade-website-backend.onrender.com
