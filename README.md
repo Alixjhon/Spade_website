@@ -46,6 +46,7 @@ Backend:
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
 - `GOOGLE_REDIRECT_URI` (for example, `https://your-backend.onrender.com/api/auth/google/callback`)
+- `APP_BASE_URL` (the frontend URL that receives the one-time Google login result)
 
 These backend variables must still be configured on your hosting platform. GitHub Actions only validates the build; it does not provide runtime app secrets to your deployed services.
 
@@ -126,8 +127,12 @@ Frontend on Render:
    - `SMTP_USER`
    - `SMTP_PASS`
    - `MAIL_FROM`
+  - `GOOGLE_CLIENT_ID`
+  - `GOOGLE_CLIENT_SECRET`
+  - `GOOGLE_REDIRECT_URI=https://spade-backend.onrender.com/api/auth/google/callback`
+  - `APP_BASE_URL=https://spade-website-frontend.onrender.com`
 6. For the frontend service, set:
-   - `VITE_API_BASE_URL=https://<your-backend-service>.onrender.com`
+  - `VITE_API_BASE_URL=https://spade-backend.onrender.com`
 7. Create the services and wait for the first deploy.
 
 ### Manual Render Setup
