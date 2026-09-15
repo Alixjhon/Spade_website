@@ -14,7 +14,7 @@ function optionalEnv(name: string) {
 
 function optionalGoogleRedirectUri() {
   const value = optionalEnv("GOOGLE_REDIRECT_URI");
-  return value?.replace(/\/callback2\/?$/, "/callback") ?? "https://spade-website-backend.onrender.com/api/auth/google/callback";
+  return value?.replace(/\/callback\/?$/, "/callback") ?? "https://spade-website-backend.onrender.com/api/auth/google/callback";
 }
 
 const port = Number(process.env.PORT);
